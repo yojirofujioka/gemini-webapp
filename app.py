@@ -30,7 +30,7 @@ try:
         location    = GCP_REGION,
         credentials = credentials
     )
-    model = GenerativeModel("gemini-2.5-pro-preview-latest")
+    model = GenerativeModel("gemini-1.5-pro")
 
     GCP_AUTH_SUCCESS = True
 
