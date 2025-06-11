@@ -11,23 +11,23 @@ from google.oauth2 import service_account
 # 2. ★★★ GCP認証と初期設定 ★★★
 # -----------------------------------------------
 try:
-    # secrets.toml の [gcp] セクションをまるごと読み込む
+    # .streamlit/secrets.toml の [gcp] セクションを読み込む
     gcp_cfg = st.secrets["gcp"]
     GCP_PROJECT_ID = gcp_cfg["project_id"]
     GCP_REGION     = "asia-northeast1"
 
-    # JSON文字列を辞書に戻す
+    # JSON文字列を辞書化
     service_account_info = json.loads(gcp_cfg["gcp_service_account"])
 
-    # 認証情報オブジェクトを作成
+    # 認証用オブジェクトを作成
     credentials = service_account.Credentials.from_service_account_info(
         service_account_info
     )
 
     # Vertex AI 初期化
     vertexai.init(
-        project   = GCP_PROJECT_ID,
-        location  = GCP_REGION,
+        project     = GCP_PROJECT_ID,
+        location    = GCP_REGION,
         credentials = credentials
     )
     model = GenerativeModel("gemini-1.5-pro-latest")
@@ -39,7 +39,7 @@ except Exception as e:
     st.error(f"GCPの認証に失敗しました。\nStreamlitのSecrets設定を確認してください。\nエラー: {e}")
 
 # -----------------------------------------------
-# 3. UI 部分
+# 3. UI（画面）部分
 # -----------------------------------------------
 st.title("📷 AIによるリフォーム箇所分析アプリ")
 st.markdown("""
@@ -62,12 +62,11 @@ prompt = """
 """
 
 # -----------------------------------------------
-# 4. 分析ボタン押下時の処理
+# 4. 分析開始ボタン押下時の処理
 # -----------------------------------------------
 if st.button("分析を開始する"):
     if not GCP_AUTH_SUCCESS:
-        # 認証エラーは上部で表示済み
-        st.stop()
+        st.stop()  # 認証エラーは上部で報告済み
 
     if not uploaded:
         st.warning("まずはファイルをアップロードしてください。")
@@ -75,15 +74,18 @@ if st.button("分析を開始する"):
 
     with st.spinner("AIが写真を分析中です…"):
         try:
+            # 画像データを Part オブジェクトに変換
             parts = [
                 Part.from_data(data=f.getvalue(), mime_type=f.type)
                 for f in uploaded
             ]
+
+            # ここで request_options を外しています
             contents = [prompt] + parts
-            res = model.generate_content(contents, request_options={"timeout":1800})
+            response = model.generate_content(contents)
 
             st.subheader("🔍 分析結果")
-            st.markdown(res.text)
+            st.markdown(response.text)
             st.success("✅ 分析が完了しました！")
 
         except Exception as e:
