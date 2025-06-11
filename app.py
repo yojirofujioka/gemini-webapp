@@ -38,7 +38,10 @@ try:
     GCP_AUTH_SUCCESS = True
 
 except Exception as e:
-    st.error(f"❌ GCP 認証／Vertex AI の初期化に失敗しました。\nSecrets をご確認ください。\nエラー: {e}")
+    st.error(
+        f"❌ GCP 認証／Vertex AI の初期化に失敗しました。\n"
+        f"Secrets をご確認ください。\nエラー: {e}"
+    )
 
 # ───────────────────────────────────────
 # 2. UI 部分
@@ -52,7 +55,7 @@ AIが写真を分析し、リフォームや修繕が必要な箇所を自動で
 # 画像アップロード
 uploaded = st.file_uploader(
     "分析したい写真を選択してください（複数選択可）",
-    type=["png","jpg","jpeg"],
+    type=["png", "jpg", "jpeg"],
     accept_multiple_files=True
 )
 
@@ -131,3 +134,81 @@ prompt = """
 if st.button("分析を開始する"):
     # 認証チェック
     if not GCP_AUTH_SUCCESS:
+        st.error("❌ GCP 認証が完了していないため、処理を中断します。")
+        st.stop()
+
+    if not uploaded:
+        st.warning("⚠️ まずはファイルをアップロードしてください。")
+        st.stop()
+
+    if model is None:
+        st.error("❌ モデルがロードできていません。アプリを再起動してください。")
+        st.stop()
+
+    with st.spinner("AIが写真を分析中です…"):
+        # 画像を Part に変換
+        parts = [
+            Part.from_data(data=f.getvalue(), mime_type=f.type)
+            for f in uploaded
+        ]
+        contents = [prompt] + parts
+
+        try:
+            response = model.generate_content(contents)
+        except Exception as e:
+            st.error(f"モデル呼び出し中にエラーが発生しました: {e}")
+            st.stop()
+
+    # ───────────────────────────────────────
+    # 分析結果の描画
+    # ───────────────────────────────────────
+    st.subheader("🔍 分析結果")
+    lines = response.text.splitlines()
+
+    # 1〜2節をそのまま出力
+    for line in lines:
+        if line.startswith("3. 写真のサムネイル"):
+            break
+        st.markdown(line)
+
+    # テーブル部分をパースして (写真ラベル, コメント) のリストを作成
+    table_rows = []
+    in_table = False
+    for line in lines:
+        if line.strip().startswith("| 写真") and "コメント" in line:
+            in_table = True
+            continue
+        if in_table:
+            if line.strip().startswith("| 写真"):
+                cols = [c.strip() for c in line.split("|")[1:-1]]
+                # [ラベル, サムネイル, コメント]
+                if len(cols) >= 3:
+                    table_rows.append((cols[0], cols[2]))
+            else:
+                break  # テーブル終了
+
+    # 各写真ごとにサムネイル＋ファイル名＋コメントを表示
+    st.markdown("### 📸 各写真のプレビュー＆コメント")
+    for idx, file in enumerate(uploaded):
+        label, comment = (
+            table_rows[idx]
+            if idx < len(table_rows)
+            else (f"写真{idx+1}", "")
+        )
+        b64 = base64.b64encode(file.getvalue()).decode()
+        mime = file.type
+        thumb_html = (
+            f'<a href="data:{mime};base64,{b64}" target="_blank">'
+            f'<img src="data:{mime};base64,{b64}" width="150" '
+            f'style="border:1px solid #ddd; border-radius:4px;" />'
+            '</a>'
+        )
+
+        st.markdown(
+            f"**{label}：{file.name}**  \n"
+            f"{thumb_html}  \n\n"
+            f"**コメント:** {comment}",
+            unsafe_allow_html=True
+        )
+
+    st.success("✅ 分析が完了しました！")
