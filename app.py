@@ -49,10 +49,10 @@ def check_password():
             st.session_state["password_correct"] = False
     
     if "password_correct" not in st.session_state:
-        st.text_input("パスワードを入力してください(半角小文字)", type="password", on_change=password_entered, key="password")
+        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
         st.stop()
     elif not st.session_state["password_correct"]:
-        st.text_input("パスワードを入力してください（半角小文字）", type="password", on_change=password_entered, key="password")
+        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
         st.error("パスワードが間違っています。")
         st.stop()
     else:
