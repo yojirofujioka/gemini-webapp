@@ -9,7 +9,7 @@ import zlib
 import base64
 
 # ----------------------------------------------------------------------
-# 1. Page Configuration
+# 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
     page_title="AIリフォーム箇所分析レポート",
@@ -18,24 +18,13 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------------
-# 2. GCP and Model Initialization
-# ----------------------------------------------------------------------
-@st.cache_resource
-def initialize_vertexai():
-    try:
-        gcp_secrets = st.secrets["gcp"]
-        service_account_info = json.loads(gcp_secrets["gcp_service_account"])
-        credentials = service_account.Credentials.from_service_account_info(service_account_info)
-        vertexai.init(project=gcp_secrets["project_id"], location="asia-northeast1", credentials=credentials)
-        return GenerativeModel("gemini-1.5-pro")
-    except Exception as e:
-        st.error(f"GCPの認証またはVertex AIの初期化に失敗しました: {e}")
-        return None
-
-# ----------------------------------------------------------------------
-# 3. Custom CSS for Professional Design
+# 2. デザインとGCP初期化
 # ----------------------------------------------------------------------
 def inject_custom_css():
+    """
+    レポートデザインを向上させるためのカスタムCSSを注入する。
+    印刷時に不要なUIを非表示にし、レイアウト崩れを防ぐ。
+    """
     st.markdown("""
     <style>
         .report-container {
@@ -53,7 +42,7 @@ def inject_custom_css():
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
-        .no-print { /* This class will not be printed */ }
+        .no-print { /* このクラスを持つ要素は印刷しない */ }
         @media print {
             .no-print { display: none !important; }
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
@@ -63,8 +52,20 @@ def inject_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
+@st.cache_resource
+def initialize_vertexai():
+    try:
+        gcp_secrets = st.secrets["gcp"]
+        service_account_info = json.loads(gcp_secrets["gcp_service_account"])
+        credentials = service_account.Credentials.from_service_account_info(service_account_info)
+        vertexai.init(project=gcp_secrets["project_id"], location="asia-northeast1", credentials=credentials)
+        return GenerativeModel("gemini-1.5-pro")
+    except Exception as e:
+        st.error(f"GCPの認証またはVertex AIの初期化に失敗しました: {e}")
+        return None
+
 # ----------------------------------------------------------------------
-# 4. Core AI and Data Handling Functions
+# 3. AIとデータ処理の関数
 # ----------------------------------------------------------------------
 def create_report_prompt(filenames):
     file_list_str = "\n".join([f"- {name}" for name in filenames])
@@ -105,13 +106,13 @@ def parse_json_response(text):
         return None
 
 def encode_report_data(data):
-    """Compresses and encodes report data for URL sharing."""
+    """レポートデータを圧縮・エンコードしてURL用の文字列を生成する"""
     json_str = json.dumps(data)
     compressed = zlib.compress(json_str.encode('utf-8'))
     return base64.urlsafe_b64encode(compressed).decode('utf-8')
 
 def decode_report_data(encoded_data):
-    """Decodes and decompresses report data from a URL."""
+    """URLの文字列をデコード・解凍してレポートデータを復元する"""
     try:
         compressed = base64.urlsafe_b64decode(encoded_data)
         json_str = zlib.decompress(compressed).decode('utf-8')
@@ -120,9 +121,10 @@ def decode_report_data(encoded_data):
         return None
 
 # ----------------------------------------------------------------------
-# 5. Report Display Functions
+# 4. レポート表示の関数
 # ----------------------------------------------------------------------
 def display_finding_content(finding):
+    """指摘事項の詳細を表示する共通関数"""
     priority = finding.get('priority', 'N/A')
     p_class = {"高": "high", "中": "medium", "低": "low"}.get(priority, "")
     st.markdown(f"**指摘箇所: {finding.get('location', 'N/A')}** <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span>", unsafe_allow_html=True)
@@ -131,14 +133,15 @@ def display_finding_content(finding):
     if finding.get('notes'):
         st.markdown(f"- **備考:** {finding.get('notes', 'N/A')}")
 
-def display_full_report(report_payload, files_dict=None):
+def display_full_report(report_payload):
+    """レポート全体を表示する"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
 
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
     
-    # Header and Summary
+    # ヘッダーとサマリー
     st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     c1.markdown(f"**物件名・案件名:**<br>{report_title or '（未設定）'}", unsafe_allow_html=True)
@@ -153,18 +156,20 @@ def display_full_report(report_payload, files_dict=None):
     m3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
     st.markdown("<hr>", unsafe_allow_html=True)
     
-    # Detailed Analysis
+    # 詳細分析
     st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
     for i, item in enumerate(report_data):
         st.markdown('<div class="photo-section">', unsafe_allow_html=True)
         st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
         
-        has_image = files_dict and item.get('file_name') in files_dict
-        col1, col2 = st.columns([2, 3] if has_image else [0.01, 1]) # Adjust columns if no image
+        has_image = "image_base64" in item
+        col1, col2 = st.columns([2, 3] if has_image else [0.01, 1])
 
         if has_image:
             with col1:
-                st.image(files_dict[item['file_name']], use_container_width=True)
+                # Base64文字列をデコードして画像として表示
+                image_bytes = base64.b64decode(item['image_base64'])
+                st.image(image_bytes, use_container_width=True)
         
         with col2:
             findings = item.get("findings", [])
@@ -180,79 +185,92 @@ def display_full_report(report_payload, files_dict=None):
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
-# 6. Main Application Logic
+# 5. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
     inject_custom_css()
     model = initialize_vertexai()
-    
-    # Check if viewing a shared report from URL
+
+    # --- モード1: URLにレポートデータがある場合（共有されたページ） ---
     if "report" in st.query_params:
         report_payload = decode_report_data(st.query_params["report"])
         if report_payload:
-            # The original user will have images in session_state, a shared user will not.
-            files_dict = st.session_state.get("uploaded_files_dict")
-            
             st.markdown('<div class="no-print">', unsafe_allow_html=True)
             st.success("レポート表示中")
-            st.info("このページのURLを共有できます。ブラウザの印刷機能（Ctrl+P）でPDF化してください。")
-            if st.button("新しいレポートを作成する"):
+            st.info("このページのURLを他者に共有できます。ブラウザの印刷機能（Ctrl+P）でPDF化してください。")
+            if st.button("新しいレポートを作成する", key="new_report_from_shared"):
                 st.query_params.clear()
             st.markdown('</div>', unsafe_allow_html=True)
-
-            display_full_report(report_payload, files_dict)
+            display_full_report(report_payload)
         else:
             st.error("レポートのURLが無効です。")
             if st.button("ホームに戻る"):
                 st.query_params.clear()
+        return # これ以降の処理は不要
+
+    # --- モード2: 新規レポート作成 ---
+    st.markdown('<div class="no-print">', unsafe_allow_html=True)
+    st.title("📷 AIリフォーム箇所分析＆報告書作成")
+    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+
+    if not model:
+        st.warning("AIモデルを読み込めませんでした。"); st.stop()
     
-    # Default view: Show the form to create a new report
-    else:
-        st.markdown('<div class="no-print">', unsafe_allow_html=True)
-        st.title("📷 AIリフォーム箇所分析＆報告書作成")
-        st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
-
-        if not model:
-            st.warning("AIモデルを読み込めませんでした。"); st.stop()
+    with st.form("report_form"):
+        st.subheader("1. レポート情報入力")
+        report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
+        survey_date = st.date_input("調査日", date.today())
         
-        with st.form("report_form"):
-            st.subheader("1. レポート情報入力")
-            report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-            survey_date = st.date_input("調査日", date.today())
-            
-            st.subheader("2. 写真アップロード")
-            uploaded_files = st.file_uploader("分析したい写真を選択", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-            
-            submitted = st.form_submit_button("レポートを作成する", type="primary", use_container_width=True)
+        st.subheader("2. 写真アップロード")
+        uploaded_files = st.file_uploader("分析したい写真を選択", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+        
+        submitted = st.form_submit_button("レポートを作成する", type="primary", use_container_width=True)
 
-        if submitted:
-            if not uploaded_files:
-                st.warning("分析を開始するには、写真をアップロードしてください。")
-            else:
-                with st.spinner("AIが写真を分析し、レポートを作成中です…"):
-                    try:
-                        prompt = create_report_prompt([f.name for f in uploaded_files])
-                        response_text = generate_ai_report(model, uploaded_files, prompt)
-                        report_data = parse_json_response(response_text)
+    if submitted:
+        if not uploaded_files:
+            st.warning("分析を開始するには、写真をアップロードしてください。")
+        else:
+            with st.spinner("AIが写真を分析し、レポートを作成中です…"):
+                try:
+                    prompt = create_report_prompt([f.name for f in uploaded_files])
+                    response_text = generate_ai_report(model, uploaded_files, prompt)
+                    report_data = parse_json_response(response_text)
+                    
+                    if report_data:
+                        # ★画像データをBase64エンコードしてレポートに含める
+                        files_dict = {f.name: f for f in uploaded_files}
+                        for item in report_data:
+                            if item['file_name'] in files_dict:
+                                image_bytes = files_dict[item['file_name']].getvalue()
+                                item['image_base64'] = base64.b64encode(image_bytes).decode('utf-8')
+
+                        report_payload = {
+                            "title": report_title,
+                            "date": survey_date.strftime('%Y年%m月%d日'),
+                            "report_data": report_data
+                        }
                         
-                        if report_data:
-                            # For the original user, store images in session state
-                            st.session_state.uploaded_files_dict = {f.name: f for f in uploaded_files}
-                            
-                            # Create payload for URL (text-only data)
-                            report_payload = {
-                                "title": report_title,
-                                "date": survey_date.strftime('%Y年%m月%d日'),
-                                "report_data": report_data
-                            }
-                            # Encode and set as query parameter to redirect
-                            st.query_params["report"] = encode_report_data(report_payload)
-                        else:
-                            st.error("レポートデータの生成に失敗しました。")
-                    except Exception as e:
-                        st.error(f"分析中に予期せぬエラーが発生しました: {e}")
+                        # ★セッションステートに保存して、即座に表示
+                        st.session_state.report_payload = report_payload
+                    else:
+                        st.error("レポートデータの生成に失敗しました。")
+                except Exception as e:
+                    st.error(f"分析中に予期せぬエラーが発生しました: {e}")
 
-        st.markdown('</div>', unsafe_allow_html=True)
+    # セッションにレポートデータがあれば表示（ボタン押下後、または再描画時）
+    if 'report_payload' in st.session_state:
+        st.success("✅ レポートの作成が完了しました！")
+        st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
+        st.warning("⚠️ 共有URLには画像データも含まれるため、写真の枚数が多いとURLが非常に長くなり、正常に機能しない場合があります。共有は数枚程度のレポートに最適です。")
+        
+        # URLを更新して共有可能にする
+        encoded_payload = encode_report_data(st.session_state.report_payload)
+        st.query_params["report"] = encoded_payload
+
+        display_full_report(st.session_state.report_payload)
+        
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
