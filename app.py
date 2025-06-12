@@ -228,6 +228,11 @@ def inject_custom_css():
             break-inside: avoid;
         }
         
+        /* 最後の写真行のマージンを削除 */
+        .photo-row:last-child {
+            margin-bottom: 0;
+        }
+        
         .photo-container {
             flex: 0 0 300px;
             max-width: 300px;
@@ -313,6 +318,12 @@ def inject_custom_css():
             font-size: 0.85rem;
         }
         
+        /* レポートコンテンツの最終要素 */
+        .report-content-end {
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
         /* ========== 印刷用スタイル ========== */
         @media print {
             /* 背景を白に設定 */
@@ -342,12 +353,19 @@ def inject_custom_css():
             .main, .block-container, section.main > div {
                 background: white !important;
                 background-color: white !important;
+                padding-bottom: 0 !important;
+                margin-bottom: 0 !important;
             }
             
             /* ページ設定 */
             @page {
                 size: A4;
                 margin: 15mm;
+            }
+            
+            /* 最後のページで余分な改ページを防ぐ */
+            @page :last {
+                margin-bottom: 0;
             }
             
             /* タイトルとヘッダー */
@@ -383,6 +401,12 @@ def inject_custom_css():
                 padding: 15px !important;
                 background: white !important;
                 border: 1px solid #333 !important;
+            }
+            
+            /* 最後の写真行 */
+            .photo-row:last-child {
+                margin-bottom: 0 !important;
+                page-break-after: avoid !important;
             }
             
             /* 写真のサイズ調整 */
@@ -443,6 +467,22 @@ def inject_custom_css():
             html, body {
                 background: white !important;
                 background-color: white !important;
+            }
+            
+            /* レポートの最後の要素 */
+            .report-content-end {
+                margin-bottom: 0 !important;
+                padding-bottom: 0 !important;
+                page-break-after: avoid !important;
+            }
+            
+            /* 余分なページブレークを防ぐ */
+            .stMarkdown:last-child,
+            .element-container:last-child,
+            div.row-widget:last-child {
+                page-break-after: avoid !important;
+                margin-bottom: 0 !important;
+                padding-bottom: 0 !important;
             }
         }
         
@@ -549,10 +589,13 @@ def optimize_image_for_display(file_obj, max_width=800):
         file_obj.seek(0)
         return base64.b64encode(file_obj.read()).decode()
 
-def create_photo_row_html(index, item, img_base64=None):
+def create_photo_row_html(index, item, img_base64=None, is_last=False):
     """写真と内容を横並びで表示するHTML"""
     file_name = html.escape(str(item.get('file_name', '')))
     findings = item.get("findings", [])
+    
+    # 最後の要素の場合、特別なクラスを追加
+    row_class = "photo-row photo-row-last" if is_last else "photo-row"
     
     # 写真部分（遅延読み込み対応）
     photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
@@ -600,7 +643,7 @@ def create_photo_row_html(index, item, img_base64=None):
     
     # 全体のHTML
     return f'''
-    <div class="photo-row">
+    <div class="{row_class}">
         <div class="photo-container">
             {photo_html}
         </div>
@@ -615,75 +658,92 @@ def display_full_report(report_payload, files_dict):
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
     
-    # ヘッダー
-    st.markdown('<div class="report-header">', unsafe_allow_html=True)
-    st.title("🏠 現場分析レポート")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"**物件名:** {report_title or '（未設定）'}")
-    with col2:
-        st.markdown(f"**調査日:** {survey_date}")
-    st.markdown('</div>', unsafe_allow_html=True)
+    # レポートコンテンツコンテナ
+    report_container = st.container()
     
-    # サマリー
-    st.header("📊 分析結果サマリー")
-    total_findings = sum(len(item.get("findings", [])) for item in report_data)
-    high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f'''
-            <div class="metric-card">
-                <div class="metric-value">{len(report_data)}</div>
-                <div class="metric-label">分析写真枚数</div>
-            </div>
-        ''', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f'''
-            <div class="metric-card">
-                <div class="metric-value">{total_findings}</div>
-                <div class="metric-label">総指摘件数</div>
-            </div>
-        ''', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f'''
-            <div class="metric-card">
-                <div class="metric-value metric-value-high">{high_priority_count}</div>
-                <div class="metric-label">緊急度「高」</div>
-            </div>
-        ''', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # 詳細分析結果
-    st.header("📋 詳細分析結果")
-    
-    # プログレスバーで画像処理状況を表示
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    # 各写真を横並びレイアウトで表示
-    for i, item in enumerate(report_data):
-        # 進捗状況を更新
-        progress = (i + 1) / len(report_data)
-        progress_bar.progress(progress)
-        status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
+    with report_container:
+        # ヘッダー
+        st.markdown('<div class="report-header">', unsafe_allow_html=True)
+        st.title("🏠 現場分析レポート")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"**物件名:** {report_title or '（未設定）'}")
+        with col2:
+            st.markdown(f"**調査日:** {survey_date}")
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        img_base64 = None
-        if files_dict and item.get('file_name') in files_dict:
-            file_obj = files_dict[item['file_name']]
-            # 画像を最適化
-            img_base64 = optimize_image_for_display(file_obj)
+        # サマリー
+        st.header("📊 分析結果サマリー")
+        total_findings = sum(len(item.get("findings", [])) for item in report_data)
+        high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
         
-        # 横並びの写真行を表示
-        photo_row_html = create_photo_row_html(i + 1, item, img_base64)
-        st.markdown(photo_row_html, unsafe_allow_html=True)
-    
-    # プログレスバーを削除
-    progress_bar.empty()
-    status_text.empty()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f'''
+                <div class="metric-card">
+                    <div class="metric-value">{len(report_data)}</div>
+                    <div class="metric-label">分析写真枚数</div>
+                </div>
+            ''', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f'''
+                <div class="metric-card">
+                    <div class="metric-value">{total_findings}</div>
+                    <div class="metric-label">総指摘件数</div>
+                </div>
+            ''', unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f'''
+                <div class="metric-card">
+                    <div class="metric-value metric-value-high">{high_priority_count}</div>
+                    <div class="metric-label">緊急度「高」</div>
+                </div>
+            ''', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # 詳細分析結果
+        st.header("📋 詳細分析結果")
+        
+        # プログレスバーで画像処理状況を表示
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # 写真のHTMLを集める
+        photo_rows_html = []
+        
+        # 各写真を処理
+        for i, item in enumerate(report_data):
+            # 進捗状況を更新
+            progress = (i + 1) / len(report_data)
+            progress_bar.progress(progress)
+            status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
+            
+            img_base64 = None
+            if files_dict and item.get('file_name') in files_dict:
+                file_obj = files_dict[item['file_name']]
+                # 画像を最適化
+                img_base64 = optimize_image_for_display(file_obj)
+            
+            # 最後の要素かどうか判定
+            is_last = (i == len(report_data) - 1)
+            
+            # 横並びの写真行のHTMLを作成
+            photo_row_html = create_photo_row_html(i + 1, item, img_base64, is_last)
+            photo_rows_html.append(photo_row_html)
+        
+        # プログレスバーを削除
+        progress_bar.empty()
+        status_text.empty()
+        
+        # すべての写真を一度に表示
+        all_photos_html = ''.join(photo_rows_html)
+        st.markdown(f'<div class="report-content-wrapper">{all_photos_html}</div>', unsafe_allow_html=True)
+        
+        # レポートの終端マーカー
+        st.markdown('<div class="report-content-end"></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
