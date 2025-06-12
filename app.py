@@ -6,6 +6,7 @@ import re
 from google.oauth2 import service_account
 from datetime import date
 import math
+import base64 # ★エラー修正のため、削除されていたbase64ライブラリを再インポート
 
 # ----------------------------------------------------------------------
 # 1. 設定と定数
@@ -42,42 +43,15 @@ def inject_custom_css():
 
         /* --- 印刷時のスタイル --- */
         @media print {
-            /* 基本的なUIを非表示 */
-            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:not(.report-container) { display: none !important; }
+            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:not(.printable-report) { display: none !important; }
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
             body { background-color: #ffffff !important; }
-            .report-container { box-shadow: none; border: none; padding: 0; margin: 0; }
-
-            /* ★3カラムレイアウトのコンテナ */
-            .print-grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 20px;
-                page-break-after: always; /* 3件ごとに改ページ */
-            }
-            /* グリッド内の各アイテム */
-            .print-item {
-                border: 1px solid #ccc;
-                padding: 15px;
-                border-radius: 8px;
-                display: flex;
-                flex-direction: column;
-                page-break-inside: avoid; /* アイテム内での改ページを防ぐ */
-            }
+            .printable-report { box-shadow: none; border: none; padding: 0; margin: 0; }
+            .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
+            .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; }
             .print-item h3 { font-size: 12px; margin: 0 0 10px 0; font-weight: bold; }
-            .print-item .image-box {
-                height: 180px; /* ★写真の高さを固定 */
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin-bottom: 10px;
-                overflow: hidden;
-            }
-            .print-item .image-box img {
-                width: 100%;
-                height: 100%;
-                object-fit: contain; /* ★アスペクト比を維持してフィットさせる */
-            }
+            .print-item .image-box { height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; }
+            .print-item .image-box img { width: 100%; height: 100%; object-fit: contain; }
             .print-item .text-box { font-size: 10px; line-height: 1.4; }
             .print-item .priority-badge { font-size: 9px; padding: 2px 6px; }
         }
@@ -189,7 +163,7 @@ def display_full_report(report_payload, files_dict):
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- 印刷用の非表示レポート ---
-    st.markdown('<div class="report-container" style="display:none;">', unsafe_allow_html=True) # 画面上では非表示
+    st.markdown('<div class="printable-report" style="display:none;">', unsafe_allow_html=True)
     for i in range(0, len(report_data), 3):
         st.markdown('<div class="print-grid">', unsafe_allow_html=True)
         for j in range(3):
@@ -199,7 +173,7 @@ def display_full_report(report_payload, files_dict):
                 image_html = ""
                 if files_dict and file_name in files_dict:
                     image_bytes = files_dict[file_name].getvalue()
-                    b64_img = base64.b64encode(image_bytes).decode()
+                    b64_img = base64.b64encode(image_bytes).decode() # ★この行でbase64が必要
                     image_html = f'<div class="image-box"><img src="data:image/png;base64,{b64_img}"></div>'
                 
                 text_html = ""
@@ -269,47 +243,63 @@ def main():
 
     if submitted:
         st.session_state.processing = True
-        
-        ui_placeholder = st.empty()
-        with ui_placeholder.container():
-            total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
-            progress_bar = st.progress(0, text="AI分析の準備をしています...")
-            
-            final_report_data = []
-            try:
-                for i in range(0, len(uploaded_files), BATCH_SIZE):
-                    current_batch_num = (i // BATCH_SIZE) + 1
-                    progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
-                    progress_bar.progress(i / len(uploaded_files), text=progress_text)
+        st.session_state.uploaded_files = uploaded_files # 分析中に使うため保存
+        st.session_state.report_title_val = report_title
+        st.session_state.survey_date_val = survey_date
+        st.rerun() # 処理中UIに切り替える
 
-                    file_batch = uploaded_files[i:i + BATCH_SIZE]
-                    filenames = [f.name for f in file_batch]
-                    prompt = create_report_prompt(filenames)
-                    
-                    response_text = generate_ai_report(model, file_batch, prompt)
-                    batch_report_data = parse_json_response(response_text)
-                    
-                    if batch_report_data:
-                        final_report_data.extend(batch_report_data)
-                    else:
-                        st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。")
-                
-                progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
-                
-                st.session_state.files_dict = {f.name: f for f in uploaded_files}
-                report_payload = {
-                    "title": report_title,
-                    "date": survey_date.strftime('%Y年%m月%d日'),
-                    "report_data": final_report_data
-                }
-                st.session_state.report_payload = report_payload
-                
-            except Exception as e:
-                st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
-            finally:
-                st.session_state.processing = False
-                ui_placeholder.empty()
-                st.rerun()
+def run_analysis():
+    """st.rerunの後に実行される分析処理の本体"""
+    model = initialize_vertexai()
+    uploaded_files = st.session_state.uploaded_files
+    report_title = st.session_state.report_title_val
+    survey_date = st.session_state.survey_date_val
+    
+    st.info("分析処理を実行中です。このままお待ちください...")
+    total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
+    progress_bar = st.progress(0, text="AI分析の準備をしています...")
+    
+    final_report_data = []
+    try:
+        for i in range(0, len(uploaded_files), BATCH_SIZE):
+            current_batch_num = (i // BATCH_SIZE) + 1
+            progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+            progress_bar.progress(i / len(uploaded_files), text=progress_text)
+
+            file_batch = uploaded_files[i:i + BATCH_SIZE]
+            filenames = [f.name for f in file_batch]
+            prompt = create_report_prompt(filenames)
+            
+            response_text = generate_ai_report(model, file_batch, prompt)
+            batch_report_data = parse_json_response(response_text)
+            
+            if batch_report_data:
+                final_report_data.extend(batch_report_data)
+            else:
+                st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。")
+        
+        progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
+        
+        st.session_state.files_dict = {f.name: f for f in uploaded_files}
+        report_payload = {
+            "title": report_title,
+            "date": survey_date.strftime('%Y年%m月%d日'),
+            "report_data": final_report_data
+        }
+        st.session_state.report_payload = report_payload
+        
+    except Exception as e:
+        st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
+    finally:
+        st.session_state.processing = False
+        # 不要になった一時データを削除
+        for key in ['uploaded_files', 'report_title_val', 'survey_date_val']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 
 if __name__ == "__main__":
-    main()
+    if st.session_state.get('processing', False):
+        run_analysis()
+    else:
+        main()
