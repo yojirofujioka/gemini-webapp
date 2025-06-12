@@ -37,9 +37,12 @@ def inject_custom_css():
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
-        .no-print { /* このクラスを持つ要素は印刷しない */ }
+        
+        /* 印刷時にUI部分を非表示にするための、より堅牢なセレクタ */
         @media print {
-            .no-print { display: none !important; }
+            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) {
+                display: none !important;
+            }
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
             body { background-color: #ffffff !important; }
             .report-container { box-shadow: none; border: 1px solid #ccc; padding: 1em; margin: 0; }
@@ -175,37 +178,33 @@ def main():
     inject_custom_css()
     model = initialize_vertexai()
 
-    # --- 共有URLまたは分析完了後の表示 ---
+    # --- モード1: URLにレポートデータがある場合（共有されたページまたは分析完了後） ---
     if "report" in st.query_params:
         report_payload = decode_report_data(st.query_params["report"])
         if report_payload:
-            # ★ 作成者本人か（写真データがセッションにあるか）を判定
             files_dict = st.session_state.get("files_dict")
             is_creator = files_dict is not None
             
-            st.markdown('<div class="no-print">', unsafe_allow_html=True)
-            if is_creator:
-                st.success("✅ レポートの作成が完了しました！")
-            else:
-                st.success("レポート表示中（共有モード）")
-            
-            st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-            if st.button("新しいレポートを作成する", key="new_from_shared"):
-                st.session_state.clear()
-                st.query_params.clear()
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # ★ 判定結果に基づいて写真辞書を渡す
+            # 印刷時には表示されないUIコンテナ
+            with st.container():
+                if is_creator:
+                    st.success("✅ レポートの作成が完了しました！")
+                else:
+                    st.success("レポート表示中（共有モード）")
+                
+                st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
+                if st.button("新しいレポートを作成する", key="new_from_shared"):
+                    st.session_state.clear()
+                    st.query_params.clear()
+                    st.rerun()
+
             display_full_report(report_payload, files_dict)
         else:
             st.error("レポートのURLが無効です。")
             if st.button("ホームに戻る"): st.query_params.clear(); st.rerun()
         return
 
-    # --- 新規レポート作成画面 ---
-    st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    
+    # --- モード2: 新規レポート作成画面 ---
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
@@ -240,8 +239,9 @@ def main():
     )
 
     if submitted:
-        with st.spinner('AI分析を開始します...'):
-            st.session_state.processing = True
+        # UIをクリアし、プログレスバーを表示
+        ui_placeholder = st.empty()
+        with ui_placeholder.container():
             total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
             progress_bar = st.progress(0, text="AI分析の準備をしています...")
             
@@ -278,11 +278,9 @@ def main():
                 
             except Exception as e:
                 st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
-            finally:
-                st.session_state.processing = False
-                st.rerun()
-        
-    st.markdown('</div>', unsafe_allow_html=True)
+            
+            ui_placeholder.empty()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
