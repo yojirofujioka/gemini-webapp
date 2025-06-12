@@ -25,40 +25,42 @@ def inject_custom_css():
     """レポートデザインを向上させるためのカスタムCSSを注入する。"""
     st.markdown("""
     <style>
-        /* --- 基本的なレポートスタイル --- */
+        /* --- 画面表示時の基本スタイル --- */
         .report-container { background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }
-        .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
-        .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
+        .report-header h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
+        .report-summary h2, .report-details h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
         .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
         .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
         
-        /* --- 画面表示時のスタイル (1列表示) --- */
         .photo-section { border-top: 1px solid #e0e0e0; padding-top: 2rem; margin-top: 2rem; }
-        .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .report-details .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
         .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
-        .image-container img { max-height: 400px; width: auto; max-width: 100%; }
 
         /* --- 印刷時のスタイル --- */
         @media print {
-            /* ★ UI全体を非表示にするためのコンテナ */
-            .main-ui-container { display: none !important; }
-
-            /* Streamlitのヘッダーやツールバーも非表示に */
+            /* UI部分と画面表示用のレポートコンテナを非表示 */
+            .main-ui-container, .report-container { display: none !important; }
+            /* Streamlitのヘッダー等も非表示 */
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
             body { background-color: #ffffff !important; }
-            .printable-report { box-shadow: none; border: none; padding: 0; margin: 0; display: block !important; } /* 印刷時は表示 */
 
-            /* 3カラムレイアウトのコンテナ */
+            /* ★印刷専用のコンテナを表示 */
+            .printable-report { display: block !important; }
+            .printable-report h1 { font-size: 24px; }
+            .printable-report p { font-size: 12px; }
+            .printable-report hr { margin: 15px 0; }
+
+            /* 3カラムレイアウト */
             .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
             .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; }
-            .print-item h3 { font-size: 12px; margin: 0 0 10px 0; font-weight: bold; }
-            .print-item .image-box { height: 180px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; }
+            .print-item h3 { font-size: 11px; margin: 0 0 10px 0; font-weight: bold; word-break: break-all; }
+            .print-item .image-box { height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; }
             .print-item .image-box img { width: 100%; height: 100%; object-fit: contain; }
-            .print-item .text-box { font-size: 10px; line-height: 1.4; }
-            .print-item .priority-badge { font-size: 9px; padding: 2px 6px; }
+            .print-item .text-box { font-size: 9px; line-height: 1.4; }
+            .print-item .priority-badge { font-size: 8px; padding: 2px 6px; }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -137,16 +139,18 @@ def display_full_report(report_payload, files_dict):
     # --- 画面表示用のレポート ---
     with st.container():
         st.markdown('<div class="report-container">', unsafe_allow_html=True)
-        st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
+        # ヘッダー
+        st.markdown(f"<div class='report-header'><h1>現場分析レポート</h1></div>", unsafe_allow_html=True)
         c1, c2 = st.columns(2); c1.markdown(f"**物件名・案件名:**<br>{report_title or '（未設定）'}", unsafe_allow_html=True); c2.markdown(f"**調査日:**<br>{survey_date}", unsafe_allow_html=True)
         st.markdown("<hr>", unsafe_allow_html=True)
-        st.markdown("<h2>📊 分析結果サマリー</h2>", unsafe_allow_html=True)
+        # サマリー
+        st.markdown("<div class='report-summary'><h2>📊 分析結果サマリー</h2></div>", unsafe_allow_html=True)
         total_findings = sum(len(item.get("findings", [])) for item in report_data)
         high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
         m1, m2, m3 = st.columns(3); m1.metric("分析写真枚数", f"{len(report_data)} 枚"); m2.metric("総指摘件数", f"{total_findings} 件"); m3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
         st.markdown("<hr>", unsafe_allow_html=True)
-        
-        st.markdown("<h2>📋 詳細分析結果（画面表示用）</h2>", unsafe_allow_html=True)
+        # 詳細
+        st.markdown("<div class='report-details'><h2>📋 詳細分析結果</h2></div>", unsafe_allow_html=True)
         for i, item in enumerate(report_data):
             st.markdown('<div class="photo-section">', unsafe_allow_html=True)
             st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
@@ -157,8 +161,8 @@ def display_full_report(report_payload, files_dict):
             with col2:
                 findings = item.get("findings", [])
                 if findings:
-                    for finding in findings:
-                        st.markdown(get_finding_html(finding), unsafe_allow_html=True)
+                    for find in findings:
+                        st.markdown(get_finding_html(find), unsafe_allow_html=True)
                         st.markdown("---")
                 elif item.get("observation"):
                     st.info(f"**【AIによる所見】**\n\n{item['observation']}")
@@ -168,7 +172,6 @@ def display_full_report(report_payload, files_dict):
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- 印刷用の非表示レポート ---
-    # ★HTMLを一度に生成して最後にst.markdownで出力する方式に変更
     print_html = '<div class="printable-report" style="display:none;">'
     print_html += f"<h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p><hr>"
     
@@ -187,8 +190,8 @@ def display_full_report(report_payload, files_dict):
                 text_html = ""
                 findings = item.get("findings", [])
                 if findings:
-                    for finding in findings:
-                        text_html += get_finding_html(finding) + "<br>"
+                    for find in findings:
+                        text_html += get_finding_html(find) + "<br>"
                 elif item.get("observation"):
                     text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
                 else:
@@ -201,9 +204,12 @@ def display_full_report(report_payload, files_dict):
                     <div class="text-box">{text_html}</div>
                 </div>
                 """
+            else:
+                print_html += "<div></div>" # グリッドの空きを埋める
         print_html += '</div>'
     print_html += '</div>'
     st.markdown(print_html, unsafe_allow_html=True)
+
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -212,9 +218,8 @@ def main():
     inject_custom_css()
     model = initialize_vertexai()
 
-    # --- 状態1: レポートが生成済み ---
     if 'report_payload' in st.session_state:
-        # 印刷時に非表示にするためのUIコンテナ
+        # ★UI部分をコンテナで囲み、印刷時に非表示にする
         with st.container():
             st.success("✅ レポートの作成が完了しました！")
             st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
@@ -225,8 +230,7 @@ def main():
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    # --- 状態2: 初期画面（入力フォーム） ---
-    # 印刷時に非表示にするためのUIコンテナ
+    # ★UI部分をコンテナで囲み、印刷時に非表示にする
     with st.container():
         st.title("📷 AIリフォーム箇所分析＆報告書作成")
         st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
@@ -312,7 +316,11 @@ def run_analysis():
         st.rerun()
 
 if __name__ == "__main__":
+    # st.session_state を使った状態管理
     if st.session_state.get('processing', False):
         run_analysis()
     else:
-        main()
+        # メインのUI表示
+        main_ui_container = st.container()
+        with main_ui_container:
+            main()
