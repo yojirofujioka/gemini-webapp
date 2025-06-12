@@ -6,7 +6,7 @@ import re
 from google.oauth2 import service_account
 from datetime import date
 import math
-import base64 # ★エラー修正のため、削除されていたbase64ライブラリを再インポート
+import base64
 
 # ----------------------------------------------------------------------
 # 1. 設定と定数
@@ -43,10 +43,15 @@ def inject_custom_css():
 
         /* --- 印刷時のスタイル --- */
         @media print {
-            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:not(.printable-report) { display: none !important; }
+            /* ★ UI全体を非表示にするためのコンテナ */
+            .main-ui-container { display: none !important; }
+
+            /* Streamlitのヘッダーやツールバーも非表示に */
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
             body { background-color: #ffffff !important; }
-            .printable-report { box-shadow: none; border: none; padding: 0; margin: 0; }
+            .printable-report { box-shadow: none; border: none; padding: 0; margin: 0; display: block !important; } /* 印刷時は表示 */
+
+            /* 3カラムレイアウトのコンテナ */
             .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
             .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; }
             .print-item h3 { font-size: 12px; margin: 0 0 10px 0; font-weight: bold; }
@@ -163,9 +168,12 @@ def display_full_report(report_payload, files_dict):
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- 印刷用の非表示レポート ---
-    st.markdown('<div class="printable-report" style="display:none;">', unsafe_allow_html=True)
+    # ★HTMLを一度に生成して最後にst.markdownで出力する方式に変更
+    print_html = '<div class="printable-report" style="display:none;">'
+    print_html += f"<h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p><hr>"
+    
     for i in range(0, len(report_data), 3):
-        st.markdown('<div class="print-grid">', unsafe_allow_html=True)
+        print_html += '<div class="print-grid">'
         for j in range(3):
             if i + j < len(report_data):
                 item = report_data[i+j]
@@ -173,7 +181,7 @@ def display_full_report(report_payload, files_dict):
                 image_html = ""
                 if files_dict and file_name in files_dict:
                     image_bytes = files_dict[file_name].getvalue()
-                    b64_img = base64.b64encode(image_bytes).decode() # ★この行でbase64が必要
+                    b64_img = base64.b64encode(image_bytes).decode()
                     image_html = f'<div class="image-box"><img src="data:image/png;base64,{b64_img}"></div>'
                 
                 text_html = ""
@@ -186,16 +194,16 @@ def display_full_report(report_payload, files_dict):
                 else:
                     text_html = "特に修繕が必要な箇所は見つかりませんでした。"
 
-                st.markdown(f"""
+                print_html += f"""
                 <div class="print-item">
                     <h3>{i+j+1}. {file_name}</h3>
                     {image_html}
                     <div class="text-box">{text_html}</div>
                 </div>
-                """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
+                """
+        print_html += '</div>'
+    print_html += '</div>'
+    st.markdown(print_html, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -204,49 +212,55 @@ def main():
     inject_custom_css()
     model = initialize_vertexai()
 
+    # --- 状態1: レポートが生成済み ---
     if 'report_payload' in st.session_state:
-        st.success("✅ レポートの作成が完了しました！")
-        st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-        if st.button("新しいレポートを作成する", key="new_from_result"):
-            st.session_state.clear()
-            st.rerun()
+        # 印刷時に非表示にするためのUIコンテナ
+        with st.container():
+            st.success("✅ レポートの作成が完了しました！")
+            st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
+            if st.button("新しいレポートを作成する", key="new_from_result"):
+                st.session_state.clear()
+                st.rerun()
         
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    st.title("📷 AIリフォーム箇所分析＆報告書作成")
-    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+    # --- 状態2: 初期画面（入力フォーム） ---
+    # 印刷時に非表示にするためのUIコンテナ
+    with st.container():
+        st.title("📷 AIリフォーム箇所分析＆報告書作成")
+        st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
-    if not model:
-        st.warning("AIモデルを読み込めませんでした。"); st.stop()
+        if not model:
+            st.warning("AIモデルを読み込めませんでした。"); st.stop()
 
-    report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-    survey_date = st.date_input("調査日", date.today())
-    
-    uploaded_files = st.file_uploader(
-        "分析したい写真を選択",
-        type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True,
-        key="file_uploader"
-    )
-    
-    if uploaded_files:
-        st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
-    
-    is_processing = st.session_state.get('processing', False)
-    submitted = st.button(
-        "レポートを作成する",
-        type="primary",
-        use_container_width=True,
-        disabled=not uploaded_files or is_processing
-    )
+        report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
+        survey_date = st.date_input("調査日", date.today())
+        
+        uploaded_files = st.file_uploader(
+            "分析したい写真を選択",
+            type=["png", "jpg", "jpeg"],
+            accept_multiple_files=True,
+            key="file_uploader"
+        )
+        
+        if uploaded_files:
+            st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+        
+        is_processing = st.session_state.get('processing', False)
+        submitted = st.button(
+            "レポートを作成する",
+            type="primary",
+            use_container_width=True,
+            disabled=not uploaded_files or is_processing
+        )
 
     if submitted:
         st.session_state.processing = True
-        st.session_state.uploaded_files = uploaded_files # 分析中に使うため保存
+        st.session_state.uploaded_files = uploaded_files
         st.session_state.report_title_val = report_title
         st.session_state.survey_date_val = survey_date
-        st.rerun() # 処理中UIに切り替える
+        st.rerun()
 
 def run_analysis():
     """st.rerunの後に実行される分析処理の本体"""
@@ -292,7 +306,6 @@ def run_analysis():
         st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
     finally:
         st.session_state.processing = False
-        # 不要になった一時データを削除
         for key in ['uploaded_files', 'report_title_val', 'survey_date_val']:
             if key in st.session_state:
                 del st.session_state[key]
