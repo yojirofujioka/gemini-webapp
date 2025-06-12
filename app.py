@@ -38,7 +38,8 @@ def inject_custom_css():
         
         /* サマリーカード */
         .metric-card {
-            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
             padding: 1.5rem;
             border-radius: 12px;
             text-align: center;
@@ -50,17 +51,13 @@ def inject_custom_css():
             font-size: 3rem;
             font-weight: 800;
             margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            /* ダークモードでも見やすい色に変更 */
+            color: #1f2937;
         }
         
         .metric-value-high {
-            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            /* 緊急度「高」は赤系で統一 */
+            color: #dc2626;
         }
         
         .metric-label {
@@ -169,7 +166,22 @@ def inject_custom_css():
         /* ダークモード対応 */
         @media (prefers-color-scheme: dark) {
             .metric-card {
-                background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+                background: #374151;
+                border-color: #4b5563;
+            /* 印刷ボタンを非表示 */
+            button[onclick*="print"] {
+                display: none !important;
+            }
+        }
+            
+            .metric-value {
+                /* ダークモードでも見やすい明るい色 */
+                color: #f3f4f6;
+            }
+            
+            .metric-value-high {
+                /* 緊急度「高」は明るい赤 */
+                color: #ef4444;
             }
             
             .metric-label {
@@ -186,6 +198,26 @@ def inject_custom_css():
             }
         }
         
+        /* 印刷ボタンのスタイル */
+        .print-button {
+            background-color: #10b981;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .print-button:hover {
+            background-color: #059669;
+        }
+        
         /* 印刷用スタイル */
         @media print {
             /* Streamlitの要素を非表示 */
@@ -193,6 +225,7 @@ def inject_custom_css():
             .stButton,
             .stAlert,
             button,
+            .print-button,
             div[data-testid="stDecoration"],
             div[data-testid="stToolbar"],
             section[data-testid="stSidebar"] {
@@ -444,10 +477,22 @@ def main():
     # --- 状態1: レポートが生成済み ---
     if 'report_payload' in st.session_state:
         st.success("✅ レポートの作成が完了しました！")
-        st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-        if st.button("新しいレポートを作成する", key="new_from_result"):
-            st.session_state.clear()
-            st.rerun()
+        
+        # 印刷説明と印刷ボタンを横並びで配置
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            st.info("💡 PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択するか、右のボタンをクリックしてください。")
+        with col2:
+            # カスタム印刷ボタン
+            st.markdown("""
+                <button class="print-button" onclick="window.print()">
+                    🖨️ 印刷/PDF保存
+                </button>
+            """, unsafe_allow_html=True)
+        with col3:
+            if st.button("🔄 新しいレポートを作成", key="new_from_result"):
+                st.session_state.clear()
+                st.rerun()
         
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
@@ -473,9 +518,15 @@ def main():
     if uploaded_files:
         st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
     
+    # 処理中はボタンを無効化
     is_processing = st.session_state.get('processing', False)
+    
+    # ボタンの状態を視覚的に表示
+    if is_processing:
+        st.warning("⏳ 処理中です。しばらくお待ちください...")
+    
     submitted = st.button(
-        "レポートを作成する",
+        "レポートを作成する" if not is_processing else "処理中...",
         type="primary",
         use_container_width=True,
         disabled=not uploaded_files or is_processing
