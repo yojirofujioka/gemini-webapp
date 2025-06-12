@@ -692,9 +692,13 @@ def display_editable_report(report_payload, files_dict):
             with col1:
                 # 写真表示
                 if files_dict and item.get('file_name') in files_dict:
-                    file_obj = files_dict[item['file_name']]
-                    img_base64 = optimize_image_for_display(file_obj)
-                    st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">', unsafe_allow_html=True)
+                    try:
+                        file_obj = files_dict[item['file_name']]
+                        img_base64 = optimize_image_for_display(file_obj)
+                        st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">', unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"画像の表示エラー: {str(e)}")
+                        st.info("画像を表示できません")
                 else:
                     st.info("画像なし")
                 st.caption(f"{i + 1}. {item.get('file_name', '')}")
@@ -704,6 +708,7 @@ def display_editable_report(report_payload, files_dict):
                 
                 if findings:
                     # 指摘事項の編集
+                    findings_to_delete = []
                     for j, finding in enumerate(findings):
                         with st.expander(f"指摘事項 {j + 1}: {finding.get('location', '')} ({finding.get('priority', '中')})", expanded=True):
                             # 場所
@@ -731,7 +736,14 @@ def display_editable_report(report_payload, files_dict):
                             
                             # 緊急度
                             priority_options = ['高', '中', '低']
-                            current_priority_index = priority_options.index(finding.get('priority', '中'))
+                            try:
+                                current_priority = finding.get('priority', '中')
+                                if current_priority not in priority_options:
+                                    current_priority = '中'
+                                current_priority_index = priority_options.index(current_priority)
+                            except ValueError:
+                                current_priority_index = 1  # デフォルトは'中'
+                                
                             new_priority = st.selectbox(
                                 "緊急度",
                                 options=priority_options,
@@ -749,20 +761,24 @@ def display_editable_report(report_payload, files_dict):
                             
                             # 削除ボタン
                             if st.button(f"🗑️ この指摘事項を削除", key=f"delete_{i}_{j}"):
-                                st.session_state.edited_report['report_data'][i]['findings'].pop(j)
-                                st.rerun()
+                                findings_to_delete.append(j)
                             
-                            # データ更新
-                            st.session_state.edited_report['report_data'][i]['findings'][j] = {
-                                'location': new_location,
-                                'current_state': new_current_state,
-                                'suggested_work': new_suggested_work,
-                                'priority': new_priority,
-                                'notes': new_notes
-                            }
+                            # データ更新（リアルタイムで更新しない）
+                            finding['location'] = new_location
+                            finding['current_state'] = new_current_state
+                            finding['suggested_work'] = new_suggested_work
+                            finding['priority'] = new_priority
+                            finding['notes'] = new_notes
+                    
+                    # 削除処理
+                    for idx in reversed(findings_to_delete):
+                        st.session_state.edited_report['report_data'][i]['findings'].pop(idx)
+                        st.rerun()
                     
                     # 新規指摘事項追加ボタン
                     if st.button(f"➕ 指摘事項を追加", key=f"add_finding_{i}"):
+                        if 'findings' not in st.session_state.edited_report['report_data'][i]:
+                            st.session_state.edited_report['report_data'][i]['findings'] = []
                         st.session_state.edited_report['report_data'][i]['findings'].append({
                             'location': '',
                             'current_state': '',
@@ -796,13 +812,15 @@ def display_editable_report(report_payload, files_dict):
                 else:
                     st.info("✅ 修繕必要箇所なし")
                     if st.button(f"➕ 指摘事項を追加", key=f"add_new_{i}"):
-                        st.session_state.edited_report['report_data'][i]['findings'] = [{
+                        if 'findings' not in st.session_state.edited_report['report_data'][i]:
+                            st.session_state.edited_report['report_data'][i]['findings'] = []
+                        st.session_state.edited_report['report_data'][i]['findings'].append({
                             'location': '',
                             'current_state': '',
                             'suggested_work': '',
                             'priority': '中',
                             'notes': ''
-                        }]
+                        })
                         st.rerun()
             
             st.markdown("---")
