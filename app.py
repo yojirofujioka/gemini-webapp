@@ -95,7 +95,7 @@ def display_print_preview(report_payload, files_dict):
         #root > div:nth-child(1) > div.withScreencast > div > div > header, 
         #root > div:nth-child(1) > div.withScreencast > div > div > footer,
         #stDecoration { display: none !important; }
-        .main .block-container { padding: 1rem; }
+        .main .block-container { padding: 1rem; } /* プレビューの余白を調整 */
     </style>
     """, unsafe_allow_html=True)
 
@@ -255,6 +255,7 @@ def main():
         st.rerun()
 
 def run_analysis():
+    """st.rerunの後に実行される分析処理の本体"""
     model = initialize_vertexai()
     uploaded_files = st.session_state.uploaded_files
     report_title = st.session_state.report_title_val
