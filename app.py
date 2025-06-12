@@ -175,32 +175,43 @@ def main():
     inject_custom_css()
     model = initialize_vertexai()
 
+    # --- 共有URLまたは分析完了後の表示 ---
     if "report" in st.query_params:
         report_payload = decode_report_data(st.query_params["report"])
         if report_payload:
+            # ★ 作成者本人か（写真データがセッションにあるか）を判定
+            files_dict = st.session_state.get("files_dict")
+            is_creator = files_dict is not None
+            
             st.markdown('<div class="no-print">', unsafe_allow_html=True)
-            st.success("レポート表示中（共有モード）")
-            st.info("このページのURLを他者に共有できます。ブラウザの印刷機能（Ctrl+P）でPDF化してください。")
+            if is_creator:
+                st.success("✅ レポートの作成が完了しました！")
+            else:
+                st.success("レポート表示中（共有モード）")
+            
+            st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
             if st.button("新しいレポートを作成する", key="new_from_shared"):
                 st.session_state.clear()
                 st.query_params.clear()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-            display_full_report(report_payload)
+            
+            # ★ 判定結果に基づいて写真辞書を渡す
+            display_full_report(report_payload, files_dict)
         else:
             st.error("レポートのURLが無効です。")
             if st.button("ホームに戻る"): st.query_params.clear(); st.rerun()
         return
 
-    # --- レポート作成画面（st.form を使用しない） ---
+    # --- 新規レポート作成画面 ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
+    
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
     if not model:
         st.warning("AIモデルを読み込めませんでした。"); st.stop()
     
-    # セッションステートでUIの値を管理
     if 'report_title' not in st.session_state: st.session_state.report_title = "（例）〇〇ビル 301号室 原状回復工事"
     if 'survey_date' not in st.session_state: st.session_state.survey_date = date.today()
 
@@ -225,12 +236,11 @@ def main():
         "レポートを作成する",
         type="primary",
         use_container_width=True,
-        disabled=not uploaded_files # ★ファイルがなければ非活性
+        disabled=not uploaded_files
     )
 
     if submitted:
-        # ★処理中にUIをクリアし、プログレスバーを表示
-        with st.empty():
+        with st.spinner('AI分析を開始します...'):
             st.session_state.processing = True
             total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
             progress_bar = st.progress(0, text="AI分析の準備をしています...")
@@ -271,13 +281,6 @@ def main():
             finally:
                 st.session_state.processing = False
                 st.rerun()
-
-    # セッションにレポートデータがあれば表示
-    if 'report_payload' in st.session_state:
-        st.success("✅ レポートの作成が完了しました！")
-        st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-        st.info("ℹ️ このページのURLを共有すると、テキストのみのレポートが相手に表示されます。")
-        display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         
     st.markdown('</div>', unsafe_allow_html=True)
 
