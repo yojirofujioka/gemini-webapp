@@ -6,7 +6,6 @@ import re
 from google.oauth2 import service_account
 from datetime import date
 import math
-import base64
 
 # ----------------------------------------------------------------------
 # 1. 設定と定数
@@ -19,8 +18,44 @@ st.set_page_config(
 BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
 
 # ----------------------------------------------------------------------
-# 2. GCP初期化
+# 2. デザインとGCP初期化
 # ----------------------------------------------------------------------
+def inject_custom_css():
+    """レポートデザインを向上させるためのカスタムCSSを注入する。"""
+    st.markdown("""
+    <style>
+        .report-container { background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }
+        .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
+        .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
+        .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
+        
+        /* ★各写真セクションで改ページを禁止する */
+        .photo-section { 
+            border-top: 1px solid #e0e0e0; 
+            padding-top: 2rem; 
+            margin-top: 2rem;
+            page-break-inside: avoid !important;
+        }
+        .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
+        
+        /* ★緊急度バッジのスタイル */
+        .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
+        .priority-high { background-color: #DC2626; }
+        .priority-medium { background-color: #F59E0B; }
+        .priority-low { background-color: #3B82F6; }
+
+        /* 印刷時にUI部分を非表示にする */
+        @media print {
+            /* 入力フォームやボタンなどを非表示 */
+            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:not(.report-container) { display: none !important; }
+            .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
+            body { background-color: #ffffff !important; }
+            .report-container { box-shadow: none; border: none; padding: 0; margin: 0; }
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
 @st.cache_resource
 def initialize_vertexai():
     try:
@@ -75,120 +110,27 @@ def parse_json_response(text):
         return None
 
 # ----------------------------------------------------------------------
-# 4. レポート表示と印刷用HTML生成の関数
+# 4. レポート表示の関数
 # ----------------------------------------------------------------------
-def get_finding_html(finding):
+def display_finding_content(finding):
     priority = finding.get('priority', 'N/A')
     p_class = {"高": "high", "中": "medium", "低": "low"}.get(priority, "")
-    html = f"<b>指摘箇所: {finding.get('location', 'N/A')}</b> <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span><br>"
-    html += f"- <b>現状:</b> {finding.get('current_state', 'N/A')}<br>"
-    html += f"- <b>提案工事:</b> {finding.get('suggested_work', 'N/A')}<br>"
+    html = f"<b>指摘箇所: {finding.get('location', 'N/A')}</b> <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span>"
+    st.markdown(html, unsafe_allow_html=True)
+    
+    st.markdown(f"**現状:** {finding.get('current_state', 'N/A')}")
+    st.markdown(f"**提案工事:** {finding.get('suggested_work', 'N/A')}")
     if finding.get('notes'):
-        html += f"- <b>備考:</b> {finding.get('notes', 'N/A')}"
-    return html
+        st.markdown(f"**備考:** {finding.get('notes', 'N/A')}")
 
-def generate_printable_html(report_payload, files_dict):
-    """印刷専用の完全なHTMLドキュメントを生成する"""
+def display_full_report(report_payload, files_dict):
+    """シンプルで堅牢なレポート表示関数"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
 
-    print_css = """
-    <style>
-        body { font-family: sans-serif; }
-        .print-header { text-align: center; margin-bottom: 20px; page-break-after: avoid; }
-        h1 { font-size: 24px; }
-        p { font-size: 12px; }
-        hr { margin: 15px 0; }
-        .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
-        .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; height: 320px; }
-        .print-item h3 { font-size: 11px; margin: 0 0 10px 0; font-weight: bold; word-break: break-all; }
-        .print-item .image-box { height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; background-color: #f0f0f0; }
-        .print-item .image-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .print-item .text-box { font-size: 9px; line-height: 1.4; overflow-y: auto; }
-        .priority-badge { display: inline-block; padding: 2px 6px; border-radius: 15px; font-weight: 600; color: white; font-size: 8px; margin-left: 5px; }
-        .priority-high { background-color: #DC2626; } .priority-medium { background-color: #F59E0B; } .priority-low { background-color: #3B82F6; }
-    </style>
-    """
-    
-    html = f"<!DOCTYPE html><html><head><title>現場分析レポート</title>{print_css}</head><body>"
-    html += f"<div class='print-header'><h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p></div><hr>"
-    
-    for i in range(0, len(report_data), 3):
-        html += '<div class="print-grid">'
-        for j in range(3):
-            if i + j < len(report_data):
-                item = report_data[i+j]
-                file_name = item.get('file_name', '')
-                image_html = '<div class="image-box">'
-                if files_dict and file_name in files_dict:
-                    image_bytes = files_dict[file_name].getvalue()
-                    b64_img = base64.b64encode(image_bytes).decode()
-                    image_html += f'<img src="data:image/png;base64,{b64_img}">'
-                image_html += '</div>'
-                text_html = ""
-                findings = item.get("findings", [])
-                if findings:
-                    for find in findings: text_html += get_finding_html(find) + "<br><br>"
-                elif item.get("observation"): text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
-                else: text_html = "特に修繕が必要な箇所は見つかりませんでした。"
-                html += f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>{image_html}<div class="text-box">{text_html}</div></div>'
-            else: html += "<div></div>"
-        html += '</div>'
-    html += '</body></html>'
-    return html
-
-def display_main_report(report_payload, files_dict):
-    """画面表示用の通常レポートと印刷ボタンを表示する"""
-    st.success("✅ レポートの作成が完了しました！")
-    
-    # 印刷用HTMLを生成し、JavaScriptボタンに埋め込む
-    printable_html = generate_printable_html(report_payload, files_dict)
-    html_for_js = json.dumps(printable_html) # HTMLをJavaScriptで安全に扱えるようにJSON文字列に変換
-    
-    st.markdown(f"""
-        <button id="print-button">🖨️ 印刷用PDFを生成</button>
-        <script>
-            document.getElementById('print-button').onclick = function() {{
-                const htmlContent = {html_for_js};
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(htmlContent);
-                printWindow.document.close();
-                printWindow.onload = function() {{ // コンテンツの読み込みを待つ
-                    printWindow.print();
-                    printWindow.close();
-                }};
-            }};
-        </script>
-        <style>
-            #print-button {{
-                padding: 10px 20px; font-size: 16px; font-weight: bold;
-                background-color: #0068c9; color: white; border: none;
-                border-radius: 8px; cursor: pointer; margin: 10px 0;
-            }}
-            #print-button:hover {{ background-color: #0058ab; }}
-        </style>
-    """, unsafe_allow_html=True)
-    
-    if st.button("新しいレポートを作成する", key="new_from_result"):
-        st.session_state.clear()
-        st.rerun()
-    
-    # 画面表示用のレポート
     with st.container():
-        st.markdown("""<style>
-            .report-container {{ background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }}
-            .report-container h1 {{ color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }}
-            .report-container h2 {{ color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }}
-            .report-container hr {{ border: 1px solid #e0e0e0; margin: 2.5em 0; }}
-            .photo-section {{ border-top: 1px solid #e0e0e0; padding-top: 2rem; margin-top: 2rem; }}
-            .report-container .photo-section:first-of-type {{ border-top: none; padding-top: 0; margin-top: 0; }}
-            .photo-section h3 {{ color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }}
-        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="report-container">', unsafe_allow_html=True)
-        report_data = report_payload.get('report_data', [])
-        report_title = report_payload.get('title', '')
-        survey_date = report_payload.get('date', '')
         st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
         c1, c2 = st.columns(2); c1.markdown(f"**物件名・案件名:**<br>{report_title or '（未設定）'}", unsafe_allow_html=True); c2.markdown(f"**調査日:**<br>{survey_date}", unsafe_allow_html=True)
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -197,6 +139,7 @@ def display_main_report(report_payload, files_dict):
         high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
         m1, m2, m3 = st.columns(3); m1.metric("分析写真枚数", f"{len(report_data)} 枚"); m2.metric("総指摘件数", f"{total_findings} 件"); m3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
         st.markdown("<hr>", unsafe_allow_html=True)
+        
         st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
         for i, item in enumerate(report_data):
             st.markdown('<div class="photo-section">', unsafe_allow_html=True)
@@ -209,7 +152,7 @@ def display_main_report(report_payload, files_dict):
                 findings = item.get("findings", [])
                 if findings:
                     for find in findings:
-                        st.markdown(get_finding_html(find), unsafe_allow_html=True)
+                        display_finding_content(find)
                         st.markdown("---")
                 elif item.get("observation"):
                     st.info(f"**【AIによる所見】**\n\n{item['observation']}")
@@ -222,30 +165,40 @@ def display_main_report(report_payload, files_dict):
 # 5. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
+    inject_custom_css()
     model = initialize_vertexai()
 
     if 'report_payload' in st.session_state:
-        display_main_report(st.session_state.report_payload, st.session_state.files_dict)
+        with st.container():
+            st.success("✅ レポートの作成が完了しました！")
+            st.info("💡 この画面をブラウザの印刷機能（Ctrl+P または Cmd+P）でPDF化または印刷してください。")
+            if st.button("新しいレポートを作成する", key="new_from_result"):
+                st.session_state.clear()
+                st.rerun()
+        
+        display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    st.title("📷 AIリフォーム箇所分析＆報告書作成")
-    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
-    if not model: st.warning("AIモデルを読み込めませんでした。"); st.stop()
+    with st.container():
+        st.title("📷 AIリフォーム箇所分析＆報告書作成")
+        st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+        if not model: st.warning("AIモデルを読み込めませんでした。"); st.stop()
 
-    report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-    survey_date = st.date_input("調査日", date.today())
-    uploaded_files = st.file_uploader(
-        "分析したい写真を選択", type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True, key="file_uploader"
-    )
-    if uploaded_files: st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
-    
-    if 'processing' not in st.session_state: st.session_state.processing = False
-    
-    submitted = st.button(
-        "レポートを作成する", type="primary", use_container_width=True,
-        disabled=not uploaded_files or st.session_state.processing
-    )
+        report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
+        survey_date = st.date_input("調査日", date.today())
+        
+        uploaded_files = st.file_uploader(
+            "分析したい写真を選択", type=["png", "jpg", "jpeg"],
+            accept_multiple_files=True, key="file_uploader"
+        )
+        if uploaded_files: st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+        
+        if 'processing' not in st.session_state: st.session_state.processing = False
+        
+        submitted = st.button(
+            "レポートを作成する", type="primary", use_container_width=True,
+            disabled=not uploaded_files or st.session_state.processing
+        )
 
     if submitted:
         st.session_state.processing = True
