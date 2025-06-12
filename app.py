@@ -19,7 +19,7 @@ st.set_page_config(
 BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
 
 # ----------------------------------------------------------------------
-# 2. デザインとGCP初期化
+# 2. GCP初期化
 # ----------------------------------------------------------------------
 @st.cache_resource
 def initialize_vertexai():
@@ -91,11 +91,10 @@ def display_print_preview(report_payload, files_dict):
     """印刷専用のプレビューページを純粋なHTMLで生成して表示する"""
     st.markdown("""
     <style>
-        /* 印刷プレビューページではStreamlitのUIをすべて非表示 */
         #root > div:nth-child(1) > div.withScreencast > div > div > header, 
         #root > div:nth-child(1) > div.withScreencast > div > div > footer,
         #stDecoration { display: none !important; }
-        .main .block-container { padding: 1rem; } /* プレビューの余白を調整 */
+        .main .block-container { padding: 1rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -105,7 +104,6 @@ def display_print_preview(report_payload, files_dict):
 
     st.info("この画面でブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
     
-    # --- 純粋なHTMLを生成 ---
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
@@ -132,27 +130,20 @@ def display_print_preview(report_payload, files_dict):
             if i + j < len(report_data):
                 item = report_data[i+j]
                 file_name = item.get('file_name', '')
-                
                 image_html = '<div class="image-box">'
                 if files_dict and file_name in files_dict:
                     image_bytes = files_dict[file_name].getvalue()
                     b64_img = base64.b64encode(image_bytes).decode()
                     image_html += f'<img src="data:image/png;base64,{b64_img}">'
                 image_html += '</div>'
-                
                 text_html = ""
                 findings = item.get("findings", [])
                 if findings:
-                    for find in findings:
-                        text_html += get_finding_html(find) + "<br><br>"
-                elif item.get("observation"):
-                    text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
-                else:
-                    text_html = "特に修繕が必要な箇所は見つかりませんでした。"
-                
+                    for find in findings: text_html += get_finding_html(find) + "<br><br>"
+                elif item.get("observation"): text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
+                else: text_html = "特に修繕が必要な箇所は見つかりませんでした。"
                 html += f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>{image_html}<div class="text-box">{text_html}</div></div>'
-            else:
-                html += "<div></div>" # グリッドの空きを埋める
+            else: html += "<div></div>"
         html += '</div>'
         
     st.markdown(html, unsafe_allow_html=True)
