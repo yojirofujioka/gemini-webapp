@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 import json
@@ -395,11 +396,15 @@ def parse_json_response(text):
 # ----------------------------------------------------------------------
 def create_photo_item_html(index, item, img_base64=None):
     """個別の写真アイテムのHTMLを生成"""
+    import html
     findings = item.get("findings", [])
+    
+    # ファイル名をHTMLエスケープ
+    file_name = html.escape(item.get('file_name', ''))
     
     photo_html = f"""
     <div class="photo-item">
-        <div class="photo-header">{index}. {item.get('file_name', '')}</div>
+        <div class="photo-header">{index}. {file_name}</div>
         <div class="photo-content">
     """
     
@@ -407,7 +412,7 @@ def create_photo_item_html(index, item, img_base64=None):
     if img_base64:
         photo_html += f"""
             <div class="photo-img-container">
-                <img src="data:image/jpeg;base64,{img_base64}" class="photo-img" alt="{item.get('file_name', '')}">
+                <img src="data:image/jpeg;base64,{img_base64}" class="photo-img" alt="{file_name}">
             </div>
         """
     
@@ -419,18 +424,25 @@ def create_photo_item_html(index, item, img_base64=None):
             priority = finding.get('priority', '中')
             priority_class = 'priority-high' if priority == '高' else 'priority-low' if priority == '低' else ''
             
+            # 各項目をHTMLエスケープ
+            location = html.escape(finding.get('location', 'N/A'))
+            current_state = html.escape(finding.get('current_state', 'N/A'))
+            suggested_work = html.escape(finding.get('suggested_work', 'N/A'))
+            
             photo_html += f"""
             <div class="finding-item {priority_class}">
-                <div class="finding-location">📍 {finding.get('location', 'N/A')} (緊急度: {priority})</div>
+                <div class="finding-location">📍 {location} (緊急度: {priority})</div>
                 <div class="finding-details">
-                    <div>状態: {finding.get('current_state', 'N/A')}</div>
-                    <div>提案: {finding.get('suggested_work', 'N/A')}</div>
+                    <div>状態: {current_state}</div>
+                    <div>提案: {suggested_work}</div>
             """
             if finding.get('notes'):
-                photo_html += f"<div>備考: {finding.get('notes', '')}</div>"
+                notes = html.escape(finding.get('notes', ''))
+                photo_html += f"<div>備考: {notes}</div>"
             photo_html += "</div></div>"
     elif item.get("observation"):
-        photo_html += f'<div class="observation">📋 {item["observation"]}</div>'
+        observation = html.escape(item.get("observation", ""))
+        photo_html += f'<div class="observation">📋 {observation}</div>'
     else:
         photo_html += '<div class="no-finding">✅ 修繕必要箇所なし</div>'
     
@@ -438,71 +450,76 @@ def create_photo_item_html(index, item, img_base64=None):
     return photo_html
 
 def display_full_report(report_payload, files_dict):
+    import html as html_lib
+    
     report_data = report_payload.get('report_data', [])
-    report_title = report_payload.get('title', '')
-    survey_date = report_payload.get('date', '')
+    report_title = html_lib.escape(report_payload.get('title', ''))
+    survey_date = html_lib.escape(report_payload.get('date', ''))
     
     # 統計情報の計算
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
-    # HTMLレポートの生成
-    html_content = f"""
-    <div id="printable-report">
-        <div class="report-container">
-            <!-- ヘッダー -->
-            <div class="report-header">
-                <div class="report-title">現場分析レポート</div>
-                <div class="report-info">
-                    <div><strong>物件名:</strong> {report_title or '（未設定）'}</div>
-                    <div><strong>調査日:</strong> {survey_date}</div>
-                </div>
-            </div>
-            
-            <!-- サマリー -->
-            <div class="report-section">
-                <h2 class="section-title">📊 分析結果サマリー</h2>
-                <div class="summary-container">
-                    <div class="summary-item">
-                        <div class="summary-value">{len(report_data)}</div>
-                        <div class="summary-label">分析写真枚数</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value">{total_findings}</div>
-                        <div class="summary-label">総指摘件数</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value" style="color: #DC2626;">{high_priority_count}</div>
-                        <div class="summary-label">緊急度「高」</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 詳細結果 -->
-            <div class="report-section">
-                <h2 class="section-title">📋 詳細分析結果</h2>
-                <div class="photos-grid">
-    """
-    
-    # 各写真の処理
-    for i, item in enumerate(report_data):
-        img_base64 = None
-        if files_dict and item.get('file_name') in files_dict:
-            file_obj = files_dict[item['file_name']]
-            file_obj.seek(0)
-            img_data = file_obj.read()
-            img_base64 = base64.b64encode(img_data).decode()
+    # レポートコンテナを開く
+    with st.container():
+        # CSSスタイルを適用（別途markdownで）
+        st.markdown('<div id="printable-report">', unsafe_allow_html=True)
+        st.markdown('<div class="report-container">', unsafe_allow_html=True)
         
-        html_content += create_photo_item_html(i + 1, item, img_base64)
-    
-    html_content += """
+        # ヘッダー部分
+        st.markdown("""
+        <div class="report-header">
+            <div class="report-title">現場分析レポート</div>
+            <div class="report-info">
+                <div><strong>物件名:</strong> {}</div>
+                <div><strong>調査日:</strong> {}</div>
+            </div>
+        </div>
+        """.format(report_title or '（未設定）', survey_date), unsafe_allow_html=True)
+        
+        # サマリー部分
+        st.markdown("""
+        <div class="report-section">
+            <h2 class="section-title">📊 分析結果サマリー</h2>
+            <div class="summary-container">
+                <div class="summary-item">
+                    <div class="summary-value">{}</div>
+                    <div class="summary-label">分析写真枚数</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value">{}</div>
+                    <div class="summary-label">総指摘件数</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value" style="color: #DC2626;">{}</div>
+                    <div class="summary-label">緊急度「高」</div>
                 </div>
             </div>
         </div>
-    </div>
-    """
-    
-    st.markdown(html_content, unsafe_allow_html=True)
+        """.format(len(report_data), total_findings, high_priority_count), unsafe_allow_html=True)
+        
+        # 詳細結果のヘッダー
+        st.markdown("""
+        <div class="report-section">
+            <h2 class="section-title">📋 詳細分析結果</h2>
+            <div class="photos-grid">
+        """, unsafe_allow_html=True)
+        
+        # 各写真の処理
+        for i, item in enumerate(report_data):
+            img_base64 = None
+            if files_dict and item.get('file_name') in files_dict:
+                file_obj = files_dict[item['file_name']]
+                file_obj.seek(0)
+                img_data = file_obj.read()
+                img_base64 = base64.b64encode(img_data).decode()
+            
+            # 個別の写真アイテムを表示
+            photo_html = create_photo_item_html(i + 1, item, img_base64)
+            st.markdown(photo_html, unsafe_allow_html=True)
+        
+        # クロージングタグ
+        st.markdown('</div></div></div></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
