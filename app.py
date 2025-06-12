@@ -756,7 +756,7 @@ def display_editable_report(report_payload, files_dict):
                                 "備考",
                                 value=finding.get('notes', ''),
                                 key=f"notes_{i}_{j}",
-                                height=60
+                                height=80
                             )
                             
                             # 削除ボタン
