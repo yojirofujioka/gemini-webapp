@@ -12,17 +12,17 @@ import html
 import base64
 
 # ----------------------------------------------------------------------
-# 1. 設定と定数
+# 1. Configuration and Constants
 # ----------------------------------------------------------------------
 st.set_page_config(
     page_title="現場分析レポート",
     page_icon="▪",
     layout="wide",
-    initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
+    initial_sidebar_state="collapsed"
 )
-BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
+BATCH_SIZE = 10
 
-# セッション状態の初期化
+# Initialize session state
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 if 'report_payload' not in st.session_state:
@@ -35,10 +35,14 @@ if 'edited_report' not in st.session_state:
     st.session_state.edited_report = None
 
 # ----------------------------------------------------------------------
-# 2. パスワード認証
+# 2. Password Authentication
 # ----------------------------------------------------------------------
-# secrets.tomlから安全にパスワード取得
-PASSWORD = st.secrets["PASSWORD"]
+# Get password from secrets.toml
+try:
+    PASSWORD = st.secrets["PASSWORD"]
+except KeyError:
+    st.error("パスワードが設定されていません。secrets.tomlファイルにPASSWORDを設定してください。")
+    st.stop()
 
 def check_password():
     def password_entered():
@@ -59,26 +63,26 @@ def check_password():
         return True
 
 # ----------------------------------------------------------------------
-# 3. デザインとGCP初期化
+# 3. Design and GCP Initialization
 # ----------------------------------------------------------------------
 def inject_custom_css():
-    """印刷用のカスタムCSSを注入する。"""
+    """Inject custom CSS for print layout."""
     st.markdown("""
     <style>
-        /* ========== グローバルテーマ設定 ========== */
-        /* Streamlitのダークモードを完全に無効化 */
+        /* ========== Global theme settings ========== */
+        /* Disable Streamlit dark mode completely */
         :root {
             color-scheme: light !important;
         }
         
-        /* アプリ全体の背景を白に */
+        /* Set app background to white */
         html, body, .stApp, [data-testid="stAppViewContainer"], .main {
             background-color: #ffffff !important;
             color: #1f2937 !important;
         }
         
-        /* ========== テキスト要素のスタイル ========== */
-        /* すべての見出し */
+        /* ========== Text element styles ========== */
+        /* All headings */
         h1, h2, h3, h4, h5, h6,
         .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
             color: #1f2937 !important;
@@ -86,13 +90,13 @@ def inject_custom_css():
             letter-spacing: -0.02em !important;
         }
         
-        /* 段落とスパン */
+        /* Paragraphs and spans */
         p, span, label, .stMarkdown, .stText {
             color: #374151 !important;
         }
         
-        /* ========== 入力要素のスタイル ========== */
-        /* テキスト入力のラベル */
+        /* ========== Input element styles ========== */
+        /* Text input labels */
         [data-testid="stTextInput"] label,
         [data-testid="stDateInput"] label,
         [data-testid="stFileUploader"] label,
@@ -194,7 +198,7 @@ def inject_custom_css():
             border-radius: 0 !important;
         }
         
-        /* ========== ボタンのスタイル ========== */
+        /* ========== Button styles ========== */
         .stButton > button {
             background-color: #ffffff !important;
             color: #1f2937 !important;
@@ -221,8 +225,8 @@ def inject_custom_css():
             opacity: 0.6 !important;
         }
         
-        /* ========== アラートメッセージ ========== */
-        /* 成功メッセージ */
+        /* ========== Alert messages ========== */
+        /* Success message */
         .stSuccess, [data-testid="stAlert"][data-baseweb="notification"][kind="success"] {
             background-color: #f0fdf4 !important;
             color: #14532d !important;
@@ -310,7 +314,7 @@ def inject_custom_css():
             margin-bottom: 0.5rem !important;
         }
         
-        /* 印刷ガイダンス */
+        /* Print guidance */
         .print-guidance {
             background: #f9fafb;
             border: 1px solid #e5e7eb;
@@ -329,7 +333,7 @@ def inject_custom_css():
             margin-bottom: 0.5rem;
         }
         
-        /* サマリーカード */
+        /* Summary card */
         .metric-card {
             background: #ffffff;
             border: 1px solid #e5e7eb;
@@ -364,7 +368,7 @@ def inject_custom_css():
             letter-spacing: 0.05em;
         }
         
-        /* 写真セクション（横並びレイアウト） */
+        /* Photo section (horizontal layout) */
         .photo-row {
             display: flex;
             gap: 2rem;
@@ -414,7 +418,7 @@ def inject_custom_css():
             letter-spacing: normal;
         }
         
-        /* 指摘事項のスタイル */
+        /* Finding styles */
         .finding-high {
             background: #fef2f2;
             border-left: 3px solid #dc2626;
@@ -499,9 +503,9 @@ def inject_custom_css():
             border-bottom: 1px solid #e5e7eb !important;
         }
         
-        /* ========== 印刷用スタイル ========== */
+            /* ========== Print styles ========== */
         @media print {
-            /* 背景を白に設定 */
+            /* Set background to white */
             body, .stApp {
                 background: white !important;
                 background-color: white !important;
@@ -509,13 +513,13 @@ def inject_custom_css():
                 padding: 0 !important;
             }
             
-            /* ページの余白を設定 */
+            /* Page margins */
             @page {
                 size: A4;
                 margin: 20mm 15mm 20mm 15mm;
             }
             
-            /* ブラウザのヘッダー/フッターを非表示 */
+            /* Hide browser header/footer */
             @page {
                 @top-left-corner { content: none !important; }
                 @top-left { content: none !important; }
@@ -529,12 +533,12 @@ def inject_custom_css():
                 @bottom-right-corner { content: none !important; }
             }
             
-            /* リンクのURLを非表示 */
+            /* Hide link URLs */
             a[href]:after {
                 content: none !important;
             }
             
-            /* Streamlitの要素を非表示 */
+            /* Hide Streamlit elements */
             header[data-testid="stHeader"],
             [data-testid="stToolbar"],
             .stAlert,
@@ -555,13 +559,13 @@ def inject_custom_css():
                 display: none !important;
             }
             
-            /* メインコンテンツの背景を白に */
+            /* Set main content background to white */
             .main, .block-container, section.main > div {
                 background: white !important;
                 background-color: white !important;
             }
             
-            /* タイトルとヘッダー */
+            /* Title and header */
             .report-header {
                 border-bottom: 1px solid #333 !important;
                 background: white !important;
@@ -573,7 +577,7 @@ def inject_custom_css():
                 page-break-after: avoid !important;
             }
             
-            /* サマリーカード */
+            /* Summary cards */
             .metric-card {
                 background: white !important;
                 border: 1px solid #333 !important;
@@ -588,7 +592,7 @@ def inject_custom_css():
                 color: #dc2626 !important;
             }
             
-            /* 写真行の印刷設定 */
+            /* Photo row print settings */
             .photo-row {
                 page-break-inside: avoid !important;
                 margin-bottom: 15px !important;
@@ -597,7 +601,7 @@ def inject_custom_css():
                 border: 1px solid #333 !important;
             }
             
-            /* 写真のサイズ調整 */
+            /* Photo size adjustment */
             .photo-container {
                 flex: 0 0 200px !important;
                 max-width: 200px !important;
@@ -608,7 +612,7 @@ def inject_custom_css():
                 border: 1px solid #333 !important;
             }
             
-            /* テキストスタイル */
+            /* Text styles */
             .photo-title {
                 font-size: 0.9rem !important;
                 color: #000 !important;
@@ -662,19 +666,19 @@ def inject_custom_css():
                 font-size: 0.7rem !important;
             }
             
-            /* 全ての要素の背景を白に */
+            /* Make all element backgrounds transparent */
             * {
                 background-color: transparent !important;
             }
             
-            /* ベースの背景を白に */
+            /* Base background to white */
             html, body {
                 background: white !important;
                 background-color: white !important;
             }
         }
         
-        /* Ctrl+Pを無効化 */
+        /* Disable user select for print */
         @media screen {
             body {
                 -webkit-user-select: text;
@@ -686,7 +690,7 @@ def inject_custom_css():
     </style>
     
     <script>
-        // Ctrl+P / Cmd+Pを無効化
+        // Disable Ctrl+P / Cmd+P
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();
@@ -710,7 +714,7 @@ def initialize_vertexai():
         return None
 
 # ----------------------------------------------------------------------
-# 4. AIとデータ処理の関数
+# 4. AI and Data Processing Functions
 # ----------------------------------------------------------------------
 def create_report_prompt(filenames):
     file_list_str = "\n".join([f"- {name}" for name in filenames])
@@ -751,21 +755,21 @@ def parse_json_response(text):
         return None
 
 # ----------------------------------------------------------------------
-# 5. レポート表示の関数
+# 5. Report Display Functions
 # ----------------------------------------------------------------------
 def optimize_image_for_display(file_obj, max_width=800):
-    """画像を最適化してbase64エンコード"""
+    """Optimize image and encode to base64"""
     try:
         file_obj.seek(0)
         img = Image.open(file_obj)
         
-        # 画像が大きすぎる場合はリサイズ
+        # Resize if too large
         if img.width > max_width:
             ratio = max_width / img.width
             new_height = int(img.height * ratio)
             img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
         
-        # JPEGに変換して圧縮
+        # Convert to JPEG and compress
         output = io.BytesIO()
         img = img.convert('RGB') if img.mode != 'RGB' else img
         img.save(output, format='JPEG', quality=85, optimize=True)
@@ -773,20 +777,21 @@ def optimize_image_for_display(file_obj, max_width=800):
         
         return base64.b64encode(output.read()).decode()
     except Exception as e:
-        st.warning(f"画像の最適化中にエラーが発生しました: {e}")
+        error_msg = "画像の最適化中にエラーが発生しました: " + str(e)
+        st.warning(error_msg)
         file_obj.seek(0)
         return base64.b64encode(file_obj.read()).decode()
 
 def create_photo_row_html(index, item, img_base64=None):
-    """写真と内容を横並びで表示するHTML（読み取り専用）"""
+    """Create HTML for photo row display (read-only)"""
     file_name = html.escape(str(item.get('file_name', '')))
     findings = item.get("findings", [])
     
-    # 写真部分（遅延読み込み対応）
-    photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
+    # Create photo HTML (with lazy loading)
+    photo_html = '<img src="data:image/jpeg;base64,' + img_base64 + '" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
     
-    # コンテンツ部分のHTML生成（番号とファイル名を分離）
-    content_html = f'<div class="photo-title">{index}. <span class="photo-filename">{file_name}</span></div>'
+    # Generate content HTML (separate number and filename)
+    content_html = '<div class="photo-title">' + str(index) + '. <span class="photo-filename">' + file_name + '</span></div>'
     
     if findings:
         for finding in findings:
@@ -803,40 +808,40 @@ def create_photo_row_html(index, item, img_base64=None):
             current_state = html.escape(str(finding.get('current_state', 'N/A')))
             suggested_work = html.escape(str(finding.get('suggested_work', 'N/A')))
             
-            content_html += f'''
-            <div class="{priority_class}">
-                <div class="finding-location">{location} [緊急度: {priority}]</div>
+            content_html += '''
+            <div class="''' + priority_class + '''">
+                <div class="finding-location">''' + location + ''' [緊急度: ''' + priority + ''']</div>
                 <div class="finding-details">
-                    <div>現状: {current_state}</div>
-                    <div>提案: {suggested_work}</div>
+                    <div>現状: ''' + current_state + '''</div>
+                    <div>提案: ''' + suggested_work + '''</div>
             '''
             
             if finding.get('notes'):
                 notes = html.escape(str(finding.get('notes', '')))
-                content_html += f'<div>備考: {notes}</div>'
+                content_html += '<div>備考: ' + notes + '</div>'
             
             content_html += '</div></div>'
     elif item.get("observation"):
         observation = html.escape(str(item.get('observation', '')))
-        content_html += f'<div class="observation-box">所見: {observation}</div>'
+        content_html += '<div class="observation-box">所見: ' + observation + '</div>'
     else:
         content_html += '<div class="no-finding-box">修繕必要箇所なし</div>'
     
-    # 全体のHTML
-    return f'''
+    # Full HTML
+    return '''
     <div class="photo-row">
         <div class="photo-container">
-            {photo_html}
+            ''' + photo_html + '''
         </div>
         <div class="content-container">
-            {content_html}
+            ''' + content_html + '''
         </div>
     </div>
     '''
 
 def display_editable_report(report_payload, files_dict):
-    """編集可能なレポート表示"""
-    # 編集用データの初期化
+    """Display editable report"""
+    # Initialize edit data
     if st.session_state.edited_report is None:
         st.session_state.edited_report = json.loads(json.dumps(report_payload))
     
@@ -844,109 +849,113 @@ def display_editable_report(report_payload, files_dict):
     report_title = st.session_state.edited_report.get('title', '')
     survey_date = st.session_state.edited_report.get('date', '')
     
-    # ヘッダー
+    # Display header
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
     st.title("現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"**物件名:** {report_title or '（未設定）'}")
+        st.markdown("**物件名:** " + (report_title or '（未設定）'))
     with col2:
-        st.markdown(f"**調査日:** {survey_date}")
+        st.markdown("**調査日:** " + survey_date)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # サマリー計算
+    # Calculate summary
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
-    # サマリー表示
+    # Display summary
     st.header("分析結果サマリー")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f'''
+        st.markdown('''
             <div class="metric-card">
-                <div class="metric-value">{len(report_data)}</div>
+                <div class="metric-value">''' + str(len(report_data)) + '''</div>
                 <div class="metric-label">分析写真枚数</div>
             </div>
         ''', unsafe_allow_html=True)
     
     with col2:
-        st.markdown(f'''
+        st.markdown('''
             <div class="metric-card">
-                <div class="metric-value">{total_findings}</div>
+                <div class="metric-value">''' + str(total_findings) + '''</div>
                 <div class="metric-label">総指摘件数</div>
             </div>
         ''', unsafe_allow_html=True)
     
     with col3:
-        st.markdown(f'''
+        st.markdown('''
             <div class="metric-card">
-                <div class="metric-value metric-value-high">{high_priority_count}</div>
+                <div class="metric-value metric-value-high">''' + str(high_priority_count) + '''</div>
                 <div class="metric-label">緊急度「高」</div>
             </div>
         ''', unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # 詳細分析結果（編集可能）
+    # Display detailed results (editable)
     st.header("詳細分析結果")
     
     # 各写真を編集可能な形で表示
     for i, item in enumerate(report_data):
         with st.container():
-            # 写真と基本情報の表示
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                # 写真表示
+        # Display photo and basic info
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            # Photo display
                 if files_dict and item.get('file_name') in files_dict:
                     try:
                         file_obj = files_dict[item['file_name']]
                         img_base64 = optimize_image_for_display(file_obj)
                         st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">', unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"画像の表示エラー: {str(e)}")
+                        error_msg = "画像の表示エラー: " + str(e)
+                        st.error(error_msg)
                         st.info("画像を表示できません")
                 else:
                     st.info("画像なし")
                 # ファイル名をグレーで小さく表示
-                st.markdown(f'<p style="margin-top: 0.5rem; font-size: 0.85rem; color: #9ca3af;">{i + 1}. {item.get("file_name", "")}</p>', unsafe_allow_html=True)
+                st.markdown('<p style="margin-top: 0.5rem; font-size: 0.85rem; color: #9ca3af;">' + str(i + 1) + '. ' + item.get("file_name", "") + '</p>', unsafe_allow_html=True)
             
             with col2:
                 findings = item.get("findings", [])
                 
                 if findings:
-                    # 指摘事項の編集
+                    # Edit findings
                     findings_to_delete = []
                     for j, finding in enumerate(findings):
-                        # 現在の場所の値を取得（リアルタイム更新のため）
+                        # Get current location for dynamic update
                         current_location = finding.get('location', '')
                         current_priority = finding.get('priority', '中')
                         
-                        with st.expander(f"指摘事項 {j + 1}: {current_location if current_location else '(未入力)'} ({current_priority})", expanded=True):
-                            # 場所
+                        # Display current location and priority in expander title
+                        title_text = "指摘事項 " + str(j + 1) + ": " + (current_location if current_location else '(未入力)') + " (" + current_priority + ")"
+                        
+                        with st.expander(title_text, expanded=True):
+                            # Location input
                             new_location = st.text_input(
                                 "場所",
                                 value=finding.get('location', ''),
-                                key=f"location_{i}_{j}"
+                                key="location_" + str(i) + "_" + str(j)
                             )
                             
-                            # 現状
+                            # Current state input
                             new_current_state = st.text_area(
                                 "現状",
                                 value=finding.get('current_state', ''),
-                                key=f"current_{i}_{j}",
+                                key="current_" + str(i) + "_" + str(j),
                                 height=80
                             )
                             
-                            # 提案
+                            # Suggestion input
                             new_suggested_work = st.text_area(
                                 "提案する工事内容",
                                 value=finding.get('suggested_work', ''),
-                                key=f"suggest_{i}_{j}",
+                                key="suggest_" + str(i) + "_" + str(j),
                                 height=80
                             )
                             
-                            # 緊急度
+                            # Priority selection
                             priority_options = ['高', '中', '低']
                             try:
                                 current_priority = finding.get('priority', '中')
@@ -954,41 +963,41 @@ def display_editable_report(report_payload, files_dict):
                                     current_priority = '中'
                                 current_priority_index = priority_options.index(current_priority)
                             except ValueError:
-                                current_priority_index = 1  # デフォルトは'中'
+                                current_priority_index = 1  # Default to '中'
                                 
                             new_priority = st.selectbox(
                                 "緊急度",
                                 options=priority_options,
                                 index=current_priority_index,
-                                key=f"priority_{i}_{j}"
+                                key="priority_" + str(i) + "_" + str(j)
                             )
                             
-                            # 備考
+                            # Notes input
                             new_notes = st.text_area(
                                 "備考",
                                 value=finding.get('notes', ''),
-                                key=f"notes_{i}_{j}",
+                                key="notes_" + str(i) + "_" + str(j),
                                 height=80
                             )
                             
-                            # 削除ボタン
-                            if st.button(f"この指摘事項を削除", key=f"delete_{i}_{j}"):
+                            # Delete button
+                            if st.button("この指摘事項を削除", key="delete_" + str(i) + "_" + str(j)):
                                 findings_to_delete.append(j)
                             
-                            # データ更新（リアルタイムで更新しない）
+                            # Update data (not real-time)
                             finding['location'] = new_location
                             finding['current_state'] = new_current_state
                             finding['suggested_work'] = new_suggested_work
                             finding['priority'] = new_priority
                             finding['notes'] = new_notes
                     
-                    # 削除処理
+                    # Delete process
                     for idx in reversed(findings_to_delete):
                         st.session_state.edited_report['report_data'][i]['findings'].pop(idx)
                         st.rerun()
                     
-                    # 新規指摘事項追加ボタン
-                    if st.button(f"指摘事項を追加", key=f"add_finding_{i}"):
+                    # Add new finding button
+                    if st.button("指摘事項を追加", key="add_finding_" + str(i)):
                         if 'findings' not in st.session_state.edited_report['report_data'][i]:
                             st.session_state.edited_report['report_data'][i]['findings'] = []
                         st.session_state.edited_report['report_data'][i]['findings'].append({
@@ -1001,17 +1010,17 @@ def display_editable_report(report_payload, files_dict):
                         st.rerun()
                 
                 elif item.get("observation"):
-                    # 所見の編集
+                    # Edit observation
                     new_observation = st.text_area(
                         "所見",
                         value=item.get('observation', ''),
-                        key=f"observation_{i}",
+                        key="observation_" + str(i),
                         height=100
                     )
                     st.session_state.edited_report['report_data'][i]['observation'] = new_observation
                     
-                    # 指摘事項に変更ボタン
-                    if st.button(f"指摘事項に変更", key=f"convert_{i}"):
+                    # Convert to finding button
+                    if st.button("指摘事項に変更", key="convert_" + str(i)):
                         st.session_state.edited_report['report_data'][i]['observation'] = ''
                         st.session_state.edited_report['report_data'][i]['findings'] = [{
                             'location': '',
@@ -1023,7 +1032,7 @@ def display_editable_report(report_payload, files_dict):
                         st.rerun()
                 else:
                     st.info("修繕必要箇所なし")
-                    if st.button(f"指摘事項を追加", key=f"add_new_{i}"):
+                    if st.button("指摘事項を追加", key="add_new_" + str(i)):
                         if 'findings' not in st.session_state.edited_report['report_data'][i]:
                             st.session_state.edited_report['report_data'][i]['findings'] = []
                         st.session_state.edited_report['report_data'][i]['findings'].append({
@@ -1038,22 +1047,22 @@ def display_editable_report(report_payload, files_dict):
             st.markdown("---")
 
 def display_full_report(report_payload, files_dict):
-    """読み取り専用のレポート表示（既存の関数）"""
+    """Display read-only report"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
     
-    # ヘッダー
+    # Display header
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
     st.title("現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"**物件名:** {report_title or '（未設定）'}")
+        st.markdown("**物件名:** " + (report_title or '（未設定）'))
     with col2:
-        st.markdown(f"**調査日:** {survey_date}")
+        st.markdown("**調査日:** " + survey_date)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # サマリー
+    # Summary
     st.header("分析結果サマリー")
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
@@ -1085,64 +1094,64 @@ def display_full_report(report_payload, files_dict):
     
     st.markdown("---")
     
-    # 詳細分析結果
+    # Detailed results
     st.header("詳細分析結果")
     
-    # プログレスバーで画像処理状況を表示
+    # Show progress bar for image processing
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # 各写真を横並びレイアウトで表示
+    # Display each photo in horizontal layout
     for i, item in enumerate(report_data):
-        # 進捗状況を更新
+        # Update progress
         progress = (i + 1) / len(report_data)
         progress_bar.progress(progress)
-        status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
+        status_text.text("画像を処理中... (" + str(i + 1) + "/" + str(len(report_data)) + ")")
         
         img_base64 = None
         if files_dict and item.get('file_name') in files_dict:
             file_obj = files_dict[item['file_name']]
-            # 画像を最適化
+            # Optimize image
             img_base64 = optimize_image_for_display(file_obj)
         
-        # 横並びの写真行を表示
+        # Display photo row
         photo_row_html = create_photo_row_html(i + 1, item, img_base64)
         st.markdown(photo_row_html, unsafe_allow_html=True)
     
-    # プログレスバーを削除
+    # Remove progress bar
     progress_bar.empty()
     status_text.empty()
 
 # ----------------------------------------------------------------------
-# 6. メインアプリケーション
+# 6. Main Application
 # ----------------------------------------------------------------------
 def main():
-    # CSSを最初に注入して全体のスタイルを設定
+    # Inject CSS first
     inject_custom_css()
     
-    # パスワード認証
+    # Check authentication
     if not check_password():
         return
     
     model = initialize_vertexai()
 
-    # --- 状態1: レポートが生成済み ---
+    # State 1: Report already generated
     if st.session_state.report_payload is not None:
         st.success("レポートの作成が完了しました")
         
-        # 編集モードの切り替えボタン
+        # Edit mode toggle buttons
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             if st.session_state.edit_mode:
                 if st.button("編集を保存して表示モードへ", key="save_edit", use_container_width=True):
-                    # 編集内容を保存
+                    # Save edits
                     st.session_state.report_payload = json.loads(json.dumps(st.session_state.edited_report))
                     st.session_state.edit_mode = False
                     st.rerun()
             else:
                 if st.button("レポートを編集", key="start_edit", use_container_width=True):
                     st.session_state.edit_mode = True
-                    st.session_state.edited_report = None  # 編集データをリセット
+                    st.session_state.edited_report = None
                     st.rerun()
         
         with col2:
@@ -1157,7 +1166,7 @@ def main():
                 st.session_state.clear()
                 st.rerun()
         
-        # 印刷ガイダンス（表示モードのみ）
+        # Print guidance (display mode only)
         if not st.session_state.edit_mode:
             st.markdown("""
                 <div class="print-guidance">
@@ -1169,14 +1178,14 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
         
-        # レポート表示
+        # Display report
         if st.session_state.edit_mode:
             display_editable_report(st.session_state.report_payload, st.session_state.files_dict)
         else:
             display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    # --- 状態2: 初期画面（入力フォーム） ---
+    # State 2: Initial form
     st.title("現場写真分析・報告書作成システム")
     st.markdown("現場写真をアップロードすると、修繕提案レポートを自動作成します。")
 
@@ -1215,11 +1224,11 @@ def main():
     )
 
     if submitted and not st.session_state.processing:
-        # 処理開始前に即座にprocessingフラグを設定
+        # Set processing flag before rerun
         st.session_state.processing = True
-        st.rerun()  # 画面を更新してボタンを無効化
+        st.rerun()
         
-    # 処理中の場合、実際の処理を実行
+    # Execute processing if flag is set
     if st.session_state.processing and uploaded_files:
         ui_placeholder = st.empty()
         with ui_placeholder.container():
@@ -1230,7 +1239,7 @@ def main():
             try:
                 for i in range(0, len(uploaded_files), BATCH_SIZE):
                     current_batch_num = (i // BATCH_SIZE) + 1
-                    progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+                    progress_text = "写真を分析中... (バッチ " + str(current_batch_num) + "/" + str(total_batches) + ")"
                     progress_bar.progress(i / len(uploaded_files), text=progress_text)
 
                     file_batch = uploaded_files[i:i + BATCH_SIZE]
@@ -1243,11 +1252,12 @@ def main():
                     if batch_report_data:
                         final_report_data.extend(batch_report_data)
                     else:
-                        st.error(f"バッチ {current_batch_num} の分析でエラーが発生しました。")
+                        error_msg = "バッチ " + str(current_batch_num) + " の分析でエラーが発生しました。"
+                        st.error(error_msg)
                 
                 progress_bar.progress(1.0, text="分析完了")
                 
-                # レポートの保存
+                # Save report
                 st.session_state.files_dict = {f.name: f for f in uploaded_files}
                 st.session_state.report_payload = {
                     "title": report_title,
@@ -1256,11 +1266,12 @@ def main():
                 }
                 
             except Exception as e:
-                st.error(f"分析処理でエラーが発生しました: {e}")
+                error_msg = "分析処理でエラーが発生しました: " + str(e)
+                st.error(error_msg)
                 st.session_state.processing = False
                 st.session_state.report_payload = None
             finally:
-                # 処理完了後にフラグをリセット
+                # Reset processing flag
                 st.session_state.processing = False
                 ui_placeholder.empty()
                 st.rerun()
