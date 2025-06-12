@@ -15,7 +15,7 @@ import base64
 # 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
-    page_title="リフォーム箇所分析レポート",
+    page_title="現場分析レポート",
     page_icon="▪",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
@@ -134,27 +134,28 @@ def inject_custom_css():
         
         /* ========== ボタンのスタイル ========== */
         .stButton > button {
-            background-color: #1f2937 !important;
-            color: #ffffff !important;
-            border: none !important;
-            font-weight: 500 !important;
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 2px solid #1f2937 !important;
+            font-weight: 600 !important;
             border-radius: 0 !important;
             padding: 0.75rem 2rem !important;
-            text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
             font-size: 0.875rem !important;
             transition: all 0.2s !important;
         }
         
         .stButton > button:hover:not(:disabled) {
-            background-color: #111827 !important;
+            background-color: #1f2937 !important;
+            color: #ffffff !important;
             transform: translateY(-1px) !important;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
         }
         
         .stButton > button:disabled {
-            background-color: #e5e7eb !important;
+            background-color: #f3f4f6 !important;
             color: #9ca3af !important;
+            border-color: #e5e7eb !important;
             opacity: 0.6 !important;
         }
         
@@ -230,13 +231,16 @@ def inject_custom_css():
             border-radius: 0;
             padding: 1.5rem;
             margin-bottom: 3rem;
-            text-align: center;
+            text-align: left;
+            line-height: 1.8;
         }
         
         .print-guidance strong {
             color: #1f2937;
             font-size: 1rem;
-            font-weight: 500;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.5rem;
         }
         
         /* サマリーカード */
@@ -418,6 +422,33 @@ def inject_custom_css():
             body, .stApp {
                 background: white !important;
                 background-color: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* ページの余白を設定 */
+            @page {
+                size: A4;
+                margin: 20mm 15mm 20mm 15mm;
+            }
+            
+            /* ブラウザのヘッダー/フッターを非表示 */
+            @page {
+                @top-left-corner { content: none !important; }
+                @top-left { content: none !important; }
+                @top-center { content: none !important; }
+                @top-right { content: none !important; }
+                @top-right-corner { content: none !important; }
+                @bottom-left-corner { content: none !important; }
+                @bottom-left { content: none !important; }
+                @bottom-center { content: none !important; }
+                @bottom-right { content: none !important; }
+                @bottom-right-corner { content: none !important; }
+            }
+            
+            /* リンクのURLを非表示 */
+            a[href]:after {
+                content: none !important;
             }
             
             /* Streamlitの要素を非表示 */
@@ -445,22 +476,6 @@ def inject_custom_css():
             .main, .block-container, section.main > div {
                 background: white !important;
                 background-color: white !important;
-            }
-            
-            /* ページ設定 */
-            @page {
-                size: A4;
-                margin: 15mm;
-            }
-            
-            /* URLを非表示 */
-            @page {
-                @bottom-left {
-                    content: none !important;
-                }
-                @bottom-right {
-                    content: none !important;
-                }
             }
             
             /* タイトルとヘッダー */
@@ -592,7 +607,7 @@ def inject_custom_css():
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();
-                alert('PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択してください。');
+                alert('PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択してください。\\n\\n印刷設定で「ヘッダーとフッター」のチェックを外すと、URLや日付が表示されません。');
                 return false;
             }
         });
@@ -1060,8 +1075,10 @@ def main():
             st.markdown("""
                 <div class="print-guidance">
                     <strong>PDFとして保存する方法</strong><br>
-                    画面右上の「⋮」（3点メニュー）をクリックして、<br>
-                    <strong style="font-size: 1.3rem;">「Print」</strong> を選択してください
+                    1. 画面右上の「⋮」（3点メニュー）をクリック<br>
+                    2. 「Print」を選択<br>
+                    3. 印刷設定で「ヘッダーとフッター」のチェックを外す<br>
+                    4. 「PDFに保存」を選択
                 </div>
             """, unsafe_allow_html=True)
         
