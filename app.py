@@ -9,6 +9,7 @@ import math
 from PIL import Image
 import io
 import html
+import base64
 
 # ----------------------------------------------------------------------
 # 1. 設定と定数
