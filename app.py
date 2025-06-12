@@ -38,7 +38,12 @@ if 'edited_report' not in st.session_state:
 # パスワード認証機能
 # ----------------------------------------------------------------------
 # secrets.tomlから安全にパスワード取得
-PASSWORD = st.secrets["PASSWORD"]
+try:
+    PASSWORD = st.secrets["PASSWORD"]
+except KeyError:
+    st.error("パスワードが設定されていません。管理者に連絡してください。")
+    st.info("secrets.tomlファイルに'PASSWORD'を設定する必要があります。")
+    st.stop()
 
 def check_password():
     def password_entered():
@@ -686,6 +691,10 @@ def inject_custom_css():
 @st.cache_resource
 def initialize_vertexai():
     try:
+        if "gcp" not in st.secrets:
+            st.error("GCP認証情報が設定されていません。")
+            st.info("secrets.tomlファイルにGCPの認証情報を設定してください。")
+            return None
         gcp_secrets = st.secrets["gcp"]
         service_account_info = json.loads(gcp_secrets["gcp_service_account"])
         credentials = service_account.Credentials.from_service_account_info(service_account_info)
@@ -1103,12 +1112,12 @@ def display_full_report(report_payload, files_dict):
 # 5. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
+    # CSSを最初に注入して全体のスタイルを設定（認証画面でも適用）
+    inject_custom_css()
+    
     # パスワード認証チェック
     if not check_password():
         return
-    
-    # CSSを最初に注入して全体のスタイルを設定
-    inject_custom_css()
     
     model = initialize_vertexai()
 
