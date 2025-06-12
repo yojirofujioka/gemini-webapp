@@ -22,46 +22,20 @@ BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
 # 2. デザインとGCP初期化
 # ----------------------------------------------------------------------
 def inject_custom_css():
-    """レポートデザインを向上させるためのカスタムCSSを注入する。"""
+    """画面表示用のカスタムCSSを注入する。"""
     st.markdown("""
     <style>
-        /* --- 画面表示時の基本スタイル --- */
         .report-container { background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }
-        .report-header h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
-        .report-summary h2, .report-details h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
+        .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
+        .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
         .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
         .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
-        
         .photo-section { border-top: 1px solid #e0e0e0; padding-top: 2rem; margin-top: 2rem; }
-        .report-details .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
         .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
-
-        /* --- 印刷時のスタイル --- */
-        @media print {
-            /* UI部分と画面表示用のレポートコンテナを非表示 */
-            .main-ui-container, .report-container { display: none !important; }
-            /* Streamlitのヘッダー等も非表示 */
-            .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
-            body { background-color: #ffffff !important; }
-
-            /* ★印刷専用のコンテナを表示 */
-            .printable-report { display: block !important; }
-            .printable-report h1 { font-size: 24px; }
-            .printable-report p { font-size: 12px; }
-            .printable-report hr { margin: 15px 0; }
-
-            /* 3カラムレイアウト */
-            .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
-            .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; }
-            .print-item h3 { font-size: 11px; margin: 0 0 10px 0; font-weight: bold; word-break: break-all; }
-            .print-item .image-box { height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; }
-            .print-item .image-box img { width: 100%; height: 100%; object-fit: contain; }
-            .print-item .text-box { font-size: 9px; line-height: 1.4; }
-            .print-item .priority-badge { font-size: 8px; padding: 2px 6px; }
-        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -119,7 +93,7 @@ def parse_json_response(text):
         return None
 
 # ----------------------------------------------------------------------
-# 4. レポート表示の関数
+# 4. レポート表示と印刷用HTML生成の関数
 # ----------------------------------------------------------------------
 def get_finding_html(finding):
     priority = finding.get('priority', 'N/A')
@@ -131,26 +105,119 @@ def get_finding_html(finding):
         html += f"- <b>備考:</b> {finding.get('notes', 'N/A')}"
     return html
 
-def display_full_report(report_payload, files_dict):
+def generate_printable_html(report_payload, files_dict):
+    """印刷専用の完全なHTMLドキュメントを生成する"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
 
-    # --- 画面表示用のレポート ---
+    print_css = """
+    <style>
+        body { font-family: sans-serif; }
+        h1 { font-size: 24px; }
+        p { font-size: 12px; }
+        hr { margin: 15px 0; }
+        .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
+        .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; }
+        .print-item h3 { font-size: 11px; margin: 0 0 10px 0; font-weight: bold; word-break: break-all; }
+        .print-item .image-box { height: 160px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden; background-color: #f0f0f0; }
+        .print-item .image-box img { width: 100%; height: 100%; object-fit: contain; }
+        .print-item .text-box { font-size: 9px; line-height: 1.4; }
+        .priority-badge { display: inline-block; padding: 2px 6px; border-radius: 15px; font-weight: 600; color: white; font-size: 8px; margin-left: 5px; }
+        .priority-high { background-color: #DC2626; }
+        .priority-medium { background-color: #F59E0B; }
+        .priority-low { background-color: #3B82F6; }
+    </style>
+    """
+    
+    html = f"<!DOCTYPE html><html><head><title>現場分析レポート</title>{print_css}</head><body>"
+    html += f"<h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p><hr>"
+    
+    for i in range(0, len(report_data), 3):
+        html += '<div class="print-grid">'
+        for j in range(3):
+            if i + j < len(report_data):
+                item = report_data[i+j]
+                file_name = item.get('file_name', '')
+                image_html = ""
+                if files_dict and file_name in files_dict:
+                    image_bytes = files_dict[file_name].getvalue()
+                    b64_img = base64.b64encode(image_bytes).decode()
+                    image_html = f'<div class="image-box"><img src="data:image/png;base64,{b64_img}"></div>'
+                
+                text_html = ""
+                findings = item.get("findings", [])
+                if findings:
+                    for find in findings:
+                        text_html += get_finding_html(find) + "<br><br>"
+                elif item.get("observation"):
+                    text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
+                else:
+                    text_html = "特に修繕が必要な箇所は見つかりませんでした。"
+
+                html += f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>{image_html}<div class="text-box">{text_html}</div></div>'
+            else:
+                html += "<div></div>"
+        html += '</div>'
+    html += '</body></html>'
+    return html
+
+def display_report_and_print_button(report_payload, files_dict):
+    """画面表示用のレポートと、印刷用ボタンを表示する"""
+    st.success("✅ レポートの作成が完了しました！")
+    
+    # 印刷用HTMLを生成し、JavaScriptボタンに埋め込む
+    printable_html = generate_printable_html(report_payload, files_dict)
+    # HTMLをJavaScriptで安全に扱えるようにJSON文字列に変換
+    html_for_js = json.dumps(printable_html)
+    
+    st.markdown(f"""
+        <button id="print-button">🖨️ 印刷用PDFを生成</button>
+        <script>
+            document.getElementById('print-button').onclick = function() {{
+                const htmlContent = {html_for_js};
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                setTimeout(() => {{ // ドキュメントの読み込みを待つ
+                    printWindow.print();
+                    printWindow.close();
+                }}, 500);
+            }};
+        </script>
+        <style>
+            #print-button {{
+                padding: 10px 20px; font-size: 16px; font-weight: bold;
+                background-color: #0068c9; color: white; border: none;
+                border-radius: 8px; cursor: pointer; margin-bottom: 20px;
+            }}
+            #print-button:hover {{ background-color: #0058ab; }}
+        </style>
+    """, unsafe_allow_html=True)
+    
+    if st.button("新しいレポートを作成する", key="new_from_result"):
+        st.session_state.clear()
+        st.rerun()
+    
+    # 画面表示用のレポート
     with st.container():
         st.markdown('<div class="report-container">', unsafe_allow_html=True)
-        # ヘッダー
-        st.markdown(f"<div class='report-header'><h1>現場分析レポート</h1></div>", unsafe_allow_html=True)
+        # ヘッダー、サマリー、詳細... (表示ロジックは変更なし)
+        # ... (以下、画面表示ロジック) ...
+        report_data = report_payload.get('report_data', [])
+        report_title = report_payload.get('title', '')
+        survey_date = report_payload.get('date', '')
+
+        st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
         c1, c2 = st.columns(2); c1.markdown(f"**物件名・案件名:**<br>{report_title or '（未設定）'}", unsafe_allow_html=True); c2.markdown(f"**調査日:**<br>{survey_date}", unsafe_allow_html=True)
         st.markdown("<hr>", unsafe_allow_html=True)
-        # サマリー
-        st.markdown("<div class='report-summary'><h2>📊 分析結果サマリー</h2></div>", unsafe_allow_html=True)
+        st.markdown("<h2>📊 分析結果サマリー</h2>", unsafe_allow_html=True)
         total_findings = sum(len(item.get("findings", [])) for item in report_data)
         high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
         m1, m2, m3 = st.columns(3); m1.metric("分析写真枚数", f"{len(report_data)} 枚"); m2.metric("総指摘件数", f"{total_findings} 件"); m3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
         st.markdown("<hr>", unsafe_allow_html=True)
-        # 詳細
-        st.markdown("<div class='report-details'><h2>📋 詳細分析結果</h2></div>", unsafe_allow_html=True)
+        
+        st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
         for i, item in enumerate(report_data):
             st.markdown('<div class="photo-section">', unsafe_allow_html=True)
             st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
@@ -171,46 +238,6 @@ def display_full_report(report_payload, files_dict):
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 印刷用の非表示レポート ---
-    print_html = '<div class="printable-report" style="display:none;">'
-    print_html += f"<h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p><hr>"
-    
-    for i in range(0, len(report_data), 3):
-        print_html += '<div class="print-grid">'
-        for j in range(3):
-            if i + j < len(report_data):
-                item = report_data[i+j]
-                file_name = item.get('file_name', '')
-                image_html = ""
-                if files_dict and file_name in files_dict:
-                    image_bytes = files_dict[file_name].getvalue()
-                    b64_img = base64.b64encode(image_bytes).decode()
-                    image_html = f'<div class="image-box"><img src="data:image/png;base64,{b64_img}"></div>'
-                
-                text_html = ""
-                findings = item.get("findings", [])
-                if findings:
-                    for find in findings:
-                        text_html += get_finding_html(find) + "<br>"
-                elif item.get("observation"):
-                    text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
-                else:
-                    text_html = "特に修繕が必要な箇所は見つかりませんでした。"
-
-                print_html += f"""
-                <div class="print-item">
-                    <h3>{i+j+1}. {file_name}</h3>
-                    {image_html}
-                    <div class="text-box">{text_html}</div>
-                </div>
-                """
-            else:
-                print_html += "<div></div>" # グリッドの空きを埋める
-        print_html += '</div>'
-    print_html += '</div>'
-    st.markdown(print_html, unsafe_allow_html=True)
-
-
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
 # ----------------------------------------------------------------------
@@ -219,45 +246,34 @@ def main():
     model = initialize_vertexai()
 
     if 'report_payload' in st.session_state:
-        # ★UI部分をコンテナで囲み、印刷時に非表示にする
-        with st.container():
-            st.success("✅ レポートの作成が完了しました！")
-            st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-            if st.button("新しいレポートを作成する", key="new_from_result"):
-                st.session_state.clear()
-                st.rerun()
-        
-        display_full_report(st.session_state.report_payload, st.session_state.files_dict)
+        display_report_and_print_button(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    # ★UI部分をコンテナで囲み、印刷時に非表示にする
-    with st.container():
-        st.title("📷 AIリフォーム箇所分析＆報告書作成")
-        st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+    st.title("📷 AIリフォーム箇所分析＆報告書作成")
+    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+    if not model:
+        st.warning("AIモデルを読み込めませんでした。"); st.stop()
 
-        if not model:
-            st.warning("AIモデルを読み込めませんでした。"); st.stop()
-
-        report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-        survey_date = st.date_input("調査日", date.today())
-        
-        uploaded_files = st.file_uploader(
-            "分析したい写真を選択",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True,
-            key="file_uploader"
-        )
-        
-        if uploaded_files:
-            st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
-        
-        is_processing = st.session_state.get('processing', False)
-        submitted = st.button(
-            "レポートを作成する",
-            type="primary",
-            use_container_width=True,
-            disabled=not uploaded_files or is_processing
-        )
+    report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
+    survey_date = st.date_input("調査日", date.today())
+    
+    uploaded_files = st.file_uploader(
+        "分析したい写真を選択",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="file_uploader"
+    )
+    
+    if uploaded_files:
+        st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+    
+    is_processing = st.session_state.get('processing', False)
+    submitted = st.button(
+        "レポートを作成する",
+        type="primary",
+        use_container_width=True,
+        disabled=not uploaded_files or is_processing
+    )
 
     if submitted:
         st.session_state.processing = True
@@ -267,7 +283,6 @@ def main():
         st.rerun()
 
 def run_analysis():
-    """st.rerunの後に実行される分析処理の本体"""
     model = initialize_vertexai()
     uploaded_files = st.session_state.uploaded_files
     report_title = st.session_state.report_title_val
@@ -283,18 +298,13 @@ def run_analysis():
             current_batch_num = (i // BATCH_SIZE) + 1
             progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
             progress_bar.progress(i / len(uploaded_files), text=progress_text)
-
             file_batch = uploaded_files[i:i + BATCH_SIZE]
             filenames = [f.name for f in file_batch]
             prompt = create_report_prompt(filenames)
-            
             response_text = generate_ai_report(model, file_batch, prompt)
             batch_report_data = parse_json_response(response_text)
-            
-            if batch_report_data:
-                final_report_data.extend(batch_report_data)
-            else:
-                st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。")
+            if batch_report_data: final_report_data.extend(batch_report_data)
+            else: st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。")
         
         progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
         
@@ -311,16 +321,11 @@ def run_analysis():
     finally:
         st.session_state.processing = False
         for key in ['uploaded_files', 'report_title_val', 'survey_date_val']:
-            if key in st.session_state:
-                del st.session_state[key]
+            if key in st.session_state: del st.session_state[key]
         st.rerun()
 
 if __name__ == "__main__":
-    # st.session_state を使った状態管理
     if st.session_state.get('processing', False):
         run_analysis()
     else:
-        # メインのUI表示
-        main_ui_container = st.container()
-        with main_ui_container:
-            main()
+        main()
