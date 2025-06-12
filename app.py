@@ -24,31 +24,211 @@ def inject_custom_css():
     """レポートデザインを向上させるためのカスタムCSSを注入する。"""
     st.markdown("""
     <style>
-        .report-container { background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }
-        .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
-        .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
-        .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
-        
-        /* ★ 写真ごとの分析セクション全体にページまたぎ防止を適用 */
-        .photo-section {
-            page-break-inside: avoid !important;
-            padding-top: 2rem;
-            margin-top: 2rem;
-            border-top: 1px solid #e0e0e0;
+        /* 基本スタイル */
+        .report-container { 
+            background-color: #ffffff; 
+            color: #333333; 
+            border-radius: 8px; 
+            border: 1px solid #e0e0e0; 
+            padding: 2.5em 3.5em; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.05); 
+            margin: 2em 0; 
         }
-        .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
-        .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
         
-        .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
+        .report-container h1 { 
+            color: #1F2937; 
+            font-size: 2.5em; 
+            border-bottom: 3px solid #D1D5DB; 
+            padding-bottom: 0.4em; 
+        }
+        
+        .report-container h2 { 
+            color: #1F2937; 
+            font-size: 1.8em; 
+            border-bottom: 2px solid #E5E7EB; 
+            padding-bottom: 0.3em; 
+            margin-top: 2em; 
+        }
+        
+        .report-container hr { 
+            border: 1px solid #e0e0e0; 
+            margin: 2.5em 0; 
+        }
+        
+        /* 写真セクションのスタイル */
+        .photo-section { 
+            margin: 2rem 0;
+            padding: 2rem 0;
+            border-top: 1px solid #e0e0e0;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        
+        .report-container .photo-section:first-of-type { 
+            border-top: none; 
+            padding-top: 0; 
+            margin-top: 0; 
+        }
+        
+        /* 写真とコンテンツのレイアウト */
+        .photo-content-wrapper {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        
+        .photo-column {
+            flex: 0 0 40%;
+            max-width: 40%;
+        }
+        
+        .content-column {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .photo-section h3 { 
+            color: #374151; 
+            font-size: 1.4em; 
+            margin: 0 0 1em 0; 
+            font-weight: 600;
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+        
+        .photo-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        
+        .finding-item {
+            margin-bottom: 1.5rem;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        
+        .priority-badge { 
+            display: inline-block; 
+            padding: 0.3em 0.9em; 
+            border-radius: 15px; 
+            font-weight: 600; 
+            color: white; 
+            font-size: 0.9em; 
+            margin-left: 10px; 
+        }
+        
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
         
+        /* 印刷用スタイル */
         @media print {
-            .main > .block-container > div:nth-child(1) > div:nth-child(1) > div:not(.report-container) { display: none !important; }
-            .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
-            body { background-color: #ffffff !important; }
-            .report-container { box-shadow: none; border: 1px solid #ccc; padding: 1em; margin: 0; }
+            /* Streamlitのヘッダー、フッター、その他のUI要素を非表示 */
+            .stApp > header,
+            .stApp > footer,
+            .stToolbar,
+            #stDecoration,
+            .stButton,
+            button,
+            [data-testid="stSidebar"],
+            [data-testid="stHeader"],
+            [data-testid="stToolbar"],
+            .st-emotion-cache-1y4p8pa,
+            .st-emotion-cache-16idsys,
+            section[data-testid="stSidebar"],
+            div[data-testid="stDecoration"],
+            iframe,
+            .stAlert {
+                display: none !important;
+            }
+            
+            /* メインコンテナの余白を削除 */
+            .main > .block-container {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            
+            /* レポート以外の要素を非表示 */
+            .main > .block-container > div > div > div:not(.report-container) {
+                display: none !important;
+            }
+            
+            /* body要素の設定 */
+            body {
+                background-color: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* レポートコンテナの印刷用設定 */
+            .report-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 20px !important;
+                margin: 0 !important;
+                width: 100% !important;
+                break-inside: auto;
+            }
+            
+            /* 写真セクションの印刷設定 */
+            .photo-section {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                display: block !important;
+                margin: 20px 0 !important;
+                padding: 20px 0 !important;
+            }
+            
+            .photo-content-wrapper {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                display: flex !important;
+                gap: 20px !important;
+            }
+            
+            .photo-column {
+                flex: 0 0 40% !important;
+                max-width: 40% !important;
+            }
+            
+            .content-column {
+                flex: 1 !important;
+            }
+            
+            /* タイトルと内容を一緒に保つ */
+            .photo-section h3 {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+                margin-bottom: 15px !important;
+            }
+            
+            /* 各指摘事項を一つのブロックとして保つ */
+            .finding-item {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            
+            /* ページの余白設定 */
+            @page {
+                margin: 15mm;
+                size: A4;
+            }
+        }
+        
+        /* Streamlitのデフォルトスタイルをオーバーライド */
+        .stImage {
+            margin: 0 !important;
+        }
+        
+        section.main > div {
+            padding-top: 0 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -71,19 +251,14 @@ def initialize_vertexai():
 def create_report_prompt(filenames):
     file_list_str = "\n".join([f"- {name}" for name in filenames])
     return f"""
-    あなたは、日本のリフォーム・原状回復工事を専門とする、経験豊富な現場監督です。あなたの仕事は、提供された現場写真を分析し、クライアントに提出するための、丁寧で分かりやすい修繕提案レポートを作成することです。
+    あなたは、日本のリフォーム・原状回復工事を専門とする、経験豊富な現場監督です。あなたの仕事は、提供された現場写真を分析し、クライアントに提出するための、丁寧で分かりやすい修繕提案レポートを作成することです。以下の写真（ファイル名と共に提示）を一枚ずつ詳細に確認し、修繕や交換が必要と思われる箇所をすべて特定してください。特定した各箇所について、以下のJSON形式で報告書を作成してください。
     **最重要**: あなたの出力は、純粋なJSON文字列のみでなければなりません。説明文や ```json ... ``` のようなマークダウンは絶対に含めないでください。
-
-    **指示**:
-    以下の写真（ファイル名と共に提示）を一枚ずつ詳細に確認し、JSON形式で報告書を作成してください。
-    - **各項目は30文字程度の日本語で、要点をまとめて簡潔に記述してください。**
-
     **JSONの構造**:
     出力は、JSONオブジェクトのリスト形式 `[ ... ]` としてください。各オブジェクトは1枚の写真に対応します。
+    各写真オブジェクトには、以下のキーを含めてください。
     - "file_name": (string) 分析対象の写真のファイル名。
     - "findings": (array) その写真から見つかった指摘事項のリスト。指摘がない場合は空のリスト `[]` としてください。
-    - "observation": (string) "findings"が空の場合にのみ、写真から読み取れる客観的な情報（例：「TOTO製トイレTCF8GM23、傷や汚れなし。」）を記述してください。"findings"がある場合は空文字列 `""` としてください。
-
+    - "observation": (string) 【重要】"findings"が空の場合にのみ、写真から読み取れる客観的な情報を記述してください（例：「TOTO製トイレ、型番TCF8GM23。目立った傷や汚れなし。」）。"findings"がある場合は空文字列 `""` としてください。
     "findings" 配列の各指摘事項オブジェクトには、以下のキーを含めてください。
     - "location": (string) 指摘箇所の具体的な場所。
     - "current_state": (string) 現状の客観的な説明。
@@ -114,14 +289,25 @@ def parse_json_response(text):
 # ----------------------------------------------------------------------
 # 4. レポート表示の関数
 # ----------------------------------------------------------------------
-def display_finding_content(finding):
+def display_finding_content_html(finding):
+    """指摘事項をHTML形式で返す"""
     priority = finding.get('priority', 'N/A')
     p_class = {"高": "high", "中": "medium", "低": "low"}.get(priority, "")
-    st.markdown(f"**指摘箇所: {finding.get('location', 'N/A')}** <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span>", unsafe_allow_html=True)
-    st.markdown(f"- **現状:** {finding.get('current_state', 'N/A')}")
-    st.markdown(f"- **提案工事:** {finding.get('suggested_work', 'N/A')}")
+    
+    html = f"""
+    <div class="finding-item">
+        <p><strong>指摘箇所: {finding.get('location', 'N/A')}</strong> 
+        <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span></p>
+        <ul style="margin-top: 0.5em;">
+            <li><strong>現状:</strong> {finding.get('current_state', 'N/A')}</li>
+            <li><strong>提案工事:</strong> {finding.get('suggested_work', 'N/A')}</li>
+    """
+    
     if finding.get('notes'):
-        st.markdown(f"- **備考:** {finding.get('notes', 'N/A')}")
+        html += f"<li><strong>備考:</strong> {finding.get('notes', 'N/A')}</li>"
+    
+    html += "</ul></div>"
+    return html
 
 def display_full_report(report_payload, files_dict):
     report_data = report_payload.get('report_data', [])
@@ -130,43 +316,82 @@ def display_full_report(report_payload, files_dict):
 
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
     
+    # ヘッダー部分
     st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2); c1.markdown(f"**物件名・案件名:**<br>{report_title or '（未設定）'}", unsafe_allow_html=True); c2.markdown(f"**調査日:**<br>{survey_date}", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; margin-bottom: 2em;">
+            <div><strong>物件名・案件名:</strong><br>{report_title or '（未設定）'}</div>
+            <div><strong>調査日:</strong><br>{survey_date}</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("<hr>", unsafe_allow_html=True)
+    
+    # サマリー部分
     st.markdown("<h2>📊 分析結果サマリー</h2>", unsafe_allow_html=True)
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
-    m1, m2, m3 = st.columns(3); m1.metric("分析写真枚数", f"{len(report_data)} 枚"); m2.metric("総指摘件数", f"{total_findings} 件"); m3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
+    
+    st.markdown(f"""
+        <div style="display: flex; justify-content: space-around; margin: 2em 0;">
+            <div style="text-align: center;">
+                <div style="font-size: 2em; font-weight: bold; color: #1F2937;">{len(report_data)} 枚</div>
+                <div style="color: #6B7280;">分析写真枚数</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 2em; font-weight: bold; color: #1F2937;">{total_findings} 件</div>
+                <div style="color: #6B7280;">総指摘件数</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 2em; font-weight: bold; color: #DC2626;">{high_priority_count} 件</div>
+                <div style="color: #6B7280;">緊急度「高」の件数</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("<hr>", unsafe_allow_html=True)
     
+    # 詳細分析結果
     st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
+    
     for i, item in enumerate(report_data):
-        # ★ ここでグループを開始
         st.markdown('<div class="photo-section">', unsafe_allow_html=True)
-        
-        # ★ グループ内にタイトルとカラムを配置
         st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
         
-        col1, col2 = st.columns([2, 3])
+        # 写真とコンテンツのラッパー
+        st.markdown('<div class="photo-content-wrapper">', unsafe_allow_html=True)
         
-        with col1:
-            if files_dict and item.get('file_name') in files_dict:
-                st.image(files_dict[item['file_name']], use_container_width=True)
-        
-        with col2:
-            findings = item.get("findings", [])
-            if findings:
-                for finding in findings:
-                    display_finding_content(finding)
-            elif item.get("observation"):
-                st.info(f"**【AIによる所見】**\n\n{item['observation']}")
-            else:
-                st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
-        
-        # ★ ここでグループを閉じる
+        # 写真カラム
+        st.markdown('<div class="photo-column">', unsafe_allow_html=True)
+        if files_dict and item.get('file_name') in files_dict:
+            # 画像をbase64エンコードして埋め込む（印刷時の確実性のため）
+            import base64
+            from io import BytesIO
+            
+            file_obj = files_dict[item['file_name']]
+            file_obj.seek(0)
+            img_data = file_obj.read()
+            img_base64 = base64.b64encode(img_data).decode()
+            
+            st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-image" alt="{item.get("file_name", "")}">', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # コンテンツカラム
+        st.markdown('<div class="content-column">', unsafe_allow_html=True)
+        findings = item.get("findings", [])
+        if findings:
+            for finding in findings:
+                st.markdown(display_finding_content_html(finding), unsafe_allow_html=True)
+        elif item.get("observation"):
+            st.markdown(f'<div style="background-color: #D1FAE5; padding: 1em; border-radius: 8px; margin-top: 0;"><strong>【AIによる所見】</strong><br>{item["observation"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="background-color: #D1FAE5; padding: 1em; border-radius: 8px; margin-top: 0;">✅ 特に修繕が必要な箇所は見つかりませんでした。</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)  # photo-content-wrapper
+        st.markdown('</div>', unsafe_allow_html=True)  # photo-section
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)  # report-container
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -174,18 +399,13 @@ def display_full_report(report_payload, files_dict):
 def main():
     inject_custom_css()
     model = initialize_vertexai()
-    
-    # --- 状態の初期化 ---
-    if 'processing' not in st.session_state:
-        st.session_state.processing = False
-    if 'report_payload' not in st.session_state:
-        st.session_state.report_payload = None
 
     # --- 状態1: レポートが生成済み ---
-    if st.session_state.report_payload:
+    if 'report_payload' in st.session_state:
         st.success("✅ レポートの作成が完了しました！")
         st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
         if st.button("新しいレポートを作成する", key="new_from_result"):
+            # セッションをクリアして初期画面に戻る
             st.session_state.clear()
             st.rerun()
         
@@ -212,12 +432,13 @@ def main():
     if uploaded_files:
         st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
     
-    # 処理中はボタンを無効化
+    # ★ 処理中はボタンを無効化
+    is_processing = st.session_state.get('processing', False)
     submitted = st.button(
         "レポートを作成する",
         type="primary",
         use_container_width=True,
-        disabled=not uploaded_files or st.session_state.processing
+        disabled=not uploaded_files or is_processing
     )
 
     if submitted:
