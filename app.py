@@ -17,7 +17,8 @@ import base64
 st.set_page_config(
     page_title="AIリフォーム箇所分析レポート",
     page_icon="🏠",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
 )
 BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
 
@@ -36,16 +37,133 @@ def inject_custom_css():
     """印刷用のカスタムCSSを注入する。"""
     st.markdown("""
     <style>
-        /* 全体の背景を白に */
-        .stApp, .main {
-            background-color: #ffffff !important;
+        /* ========== グローバルテーマ設定 ========== */
+        /* Streamlitのダークモードを完全に無効化 */
+        :root {
+            color-scheme: light !important;
         }
         
-        /* タイトルを黒に */
-        h1, h2, h3 {
+        /* アプリ全体の背景を白に */
+        html, body, .stApp, [data-testid="stAppViewContainer"], .main {
+            background-color: #ffffff !important;
             color: #1f2937 !important;
         }
         
+        /* ========== テキスト要素のスタイル ========== */
+        /* すべての見出し */
+        h1, h2, h3, h4, h5, h6,
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+            color: #1f2937 !important;
+        }
+        
+        /* 段落とスパン */
+        p, span, label, .stMarkdown, .stText {
+            color: #374151 !important;
+        }
+        
+        /* ========== 入力要素のスタイル ========== */
+        /* テキスト入力のラベル */
+        [data-testid="stTextInput"] label,
+        [data-testid="stDateInput"] label,
+        [data-testid="stFileUploader"] label,
+        .stTextInput label,
+        .stDateInput label,
+        .stFileUploader label {
+            color: #1f2937 !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+        }
+        
+        /* テキスト入力フィールド */
+        [data-testid="stTextInput"] input,
+        .stTextInput input {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #d1d5db !important;
+        }
+        
+        /* 日付入力フィールド */
+        [data-testid="stDateInput"] input,
+        .stDateInput input {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #d1d5db !important;
+        }
+        
+        /* ファイルアップローダー */
+        [data-testid="stFileUploadDropzone"],
+        .stFileUploader > div {
+            background-color: #f9fafb !important;
+            border: 2px dashed #d1d5db !important;
+        }
+        
+        [data-testid="stFileUploadDropzone"] svg {
+            color: #6b7280 !important;
+        }
+        
+        [data-testid="stFileUploadDropzone"] p,
+        [data-testid="stFileUploadDropzone"] span {
+            color: #4b5563 !important;
+        }
+        
+        /* ========== ボタンのスタイル ========== */
+        .stButton > button {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+            border: none !important;
+            font-weight: 600 !important;
+        }
+        
+        .stButton > button:hover:not(:disabled) {
+            background-color: #2563eb !important;
+        }
+        
+        .stButton > button:disabled {
+            background-color: #9ca3af !important;
+            opacity: 0.6 !important;
+        }
+        
+        /* ========== アラートメッセージ ========== */
+        /* 成功メッセージ */
+        .stSuccess, [data-testid="stAlert"][data-baseweb="notification"][kind="success"] {
+            background-color: #d1fae5 !important;
+            color: #065f46 !important;
+        }
+        
+        .stSuccess svg {
+            color: #10b981 !important;
+        }
+        
+        /* 警告メッセージ */
+        .stWarning, [data-testid="stAlert"][data-baseweb="notification"][kind="warning"] {
+            background-color: #fef3c7 !important;
+            color: #92400e !important;
+        }
+        
+        .stWarning svg {
+            color: #f59e0b !important;
+        }
+        
+        /* 情報メッセージ */
+        .stInfo, [data-testid="stAlert"][data-baseweb="notification"][kind="info"] {
+            background-color: #dbeafe !important;
+            color: #1e3a8a !important;
+        }
+        
+        .stInfo svg {
+            color: #3b82f6 !important;
+        }
+        
+        /* ========== プログレスバー ========== */
+        .stProgress > div > div {
+            background-color: #e5e7eb !important;
+        }
+        
+        .stProgress > div > div > div {
+            background-color: #3b82f6 !important;
+        }
+        
+        /* ========== カスタムスタイル ========== */
         /* 基本スタイル */
         .report-header {
             text-align: center;
@@ -195,7 +313,7 @@ def inject_custom_css():
             font-size: 0.85rem;
         }
         
-        /* 印刷用スタイル - Streamlitの印刷機能用 */
+        /* ========== 印刷用スタイル ========== */
         @media print {
             /* 背景を白に設定 */
             body, .stApp {
@@ -571,7 +689,9 @@ def display_full_report(report_payload, files_dict):
 # 5. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
+    # CSSを最初に注入して全体のスタイルを設定
     inject_custom_css()
+    
     model = initialize_vertexai()
 
     # --- 状態1: レポートが生成済み ---
@@ -619,7 +739,7 @@ def main():
     )
     
     if uploaded_files and not st.session_state.processing:
-        st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+        st.success(f"✅ {len(uploaded_files)}件の写真がアップロードされました。")
     
     # ボタンの作成（処理中は無効化）
     button_label = "処理中..." if st.session_state.processing else "レポートを作成する"
