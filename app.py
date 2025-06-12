@@ -33,25 +33,11 @@ except Exception as e:
 def inject_custom_css():
     """
     レポートデザインを向上させるためのカスタムCSSを注入する。
-    ダークモードでもレポート部分の見た目を維持し、印刷にも最適化。
+    印刷時に不要なUIを非表示にする設定も含む。
     """
     st.markdown("""
     <style>
-        /* --- 基本設定 --- */
-        body {
-            font-family: 'Helvetica Neue', 'Arial', sans-serif;
-        }
-
-        /* --- UI部分の調整 --- */
-        .stButton>button {
-            border-radius: 8px;
-            font-weight: bold;
-        }
-        .stApp > header {
-            background-color: transparent;
-        }
-
-        /* --- レポート全体のコンテナ --- */
+        /* --- レポート部分のデザイン --- */
         .report-container {
             background-color: #ffffff; /* ダークモードでも白背景を強制 */
             color: #333333;           /* ダークモードでも文字色を黒に強制 */
@@ -62,53 +48,33 @@ def inject_custom_css():
             margin-top: 2em;
             margin-bottom: 2em;
         }
-        
-        /* --- レポート内の見出しスタイル --- */
         .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
         .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
         .report-container h3 { color: #374151; font-size: 1.4em; margin-top: 2em; font-weight: 600; }
         .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
-
-        /* --- 指摘事項カード --- */
-        .finding-card {
-            border: 1px solid #E5E7EB;
-            border-left: 5px solid #6B7280; /* カードの左端にアクセント */
-            border-radius: 8px;
-            padding: 1.5em;
-            margin-top: 1em;
-            background-color: #F9FAFB;
-            page-break-inside: avoid; /* PDF化でカードが分割されるのを防ぐ */
+        
+        /* --- 2カラム表示用の行コンテナ --- */
+        .report-row {
+            page-break-inside: avoid; /* PDF化で要素が泣き別れしないように */
+            margin-bottom: 2rem;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 2rem;
         }
-        .finding-card h5 { margin-top: 0; margin-bottom: 0.8rem; font-size: 1.1em; color: #1F2937; }
-        .finding-card p { margin-bottom: 0.5rem; }
 
         /* --- 緊急度バッジ --- */
-        .priority-badge {
-            display: inline-block;
-            padding: 0.3em 0.9em;
-            border-radius: 15px;
-            font-weight: 600;
-            color: white;
-            font-size: 0.9em;
-            margin-left: 10px;
-        }
-        .priority-high { background-color: #DC2626; border: 1px solid #B91C1C; }
-        .priority-medium { background-color: #F59E0B; border: 1px solid #D97706; }
-        .priority-low { background-color: #3B82F6; border: 1px solid #2563EB; }
+        .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
+        .priority-high { background-color: #DC2626; }
+        .priority-medium { background-color: #F59E0B; }
+        .priority-low { background-color: #3B82F6; }
 
         /* --- 印刷（PDF化）用のスタイル --- */
+        .no-print {
+            /* このクラスを持つ要素は印刷しない */
+        }
         @media print {
-            /* 画面上の操作UIを非表示 */
-            .main > div:first-child { display: none !important; }
-            .stApp > header, .stApp > footer { display: none !important; }
-            /* レポートの余白や影を調整 */
-            .report-container {
-                box-shadow: none;
-                border: 1px solid #ccc;
-                padding: 1em 1.5em;
-                margin: 0;
-            }
-            .page-break { page-break-after: always; }
+            .no-print { display: none !important; }
+            .stApp > header, .stApp > footer, .stToolbar { display: none !important; }
+            .report-container { box-shadow: none; border: 1px solid #ccc; padding: 1em; margin: 0; }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -133,11 +99,11 @@ def create_report_prompt(filenames):
 - "file_name": (string) 分析対象の写真のファイル名。
 - "findings": (array) その写真から見つかった指摘事項のリスト。指摘がない場合は空のリスト `[]` としてください。
 "findings" 配列の各指摘事項オブジェクトには、以下のキーを含めてください。
-- "location": (string) 指摘箇所の具体的な場所（例：「リビング南側の壁紙」、「キッチンのシンク下収納扉」）。
-- "current_state": (string) 現状の客観的な説明（例：「壁紙に幅約5cm、長さ約10cmの黒ずんだカビが発生している」、「扉の化粧シートが角から剥がれかけており、中の木材が露出している」）。
-- "suggested_work": (string) 提案する工事内容（例：「防カビ剤による下地処理後、壁紙の部分的な張り替えを提案します」、「既存の化粧シートを剥がし、新しいダイノックシートを貼り付けます」）。
-- "priority": (string) 工事の緊急度を「高」「中」「低」の3段階で評価してください。
-- "notes": (string) クライアントへの補足事項やアドバイス（例：「カビの発生原因として、部屋の換気不足が考えられます。定期的な換気をおすすめします」）。
+- "location": (string) 指摘箇所の具体的な場所（例：「リビング南側の壁紙」）。
+- "current_state": (string) 現状の客観的な説明（例：「壁紙に黒ずんだカビが発生」）。
+- "suggested_work": (string) 提案する工事内容（例：「防カビ剤処理後、壁紙の部分張り替え」）。
+- "priority": (string) 工事の緊急度を「高」「中」「低」の3段階で評価。
+- "notes": (string) クライアントへの補足事項（例：「部屋の換気不足が原因の可能性あり」）。
 ---
 分析対象のファイルリスト:
 {file_list_str}
@@ -148,7 +114,6 @@ def create_report_prompt(filenames):
 def generate_report(model, uploaded_files, prompt):
     image_parts = [Part.from_data(f.getvalue(), mime_type=f.type) for f in uploaded_files]
     contents = [prompt] + image_parts
-    # エラーの原因となった request_options を削除
     response = model.generate_content(contents)
     return response.text
 
@@ -159,23 +124,31 @@ def parse_json_response(text):
         return json.loads(json_str)
     except json.JSONDecodeError:
         st.error("AIの応答をJSONとして解析できませんでした。")
-        st.info("AIからの生の応答:")
-        st.code(text, language="text")
+        st.info("AIからの生の応答:"); st.code(text, language="text")
         return None
 
-def display_report(report_data, uploaded_files_dict, report_title, survey_date):
+def display_report_content(finding):
+    """指摘事項の詳細をMarkdownとして表示する共通関数"""
+    priority = finding.get('priority', 'N/A')
+    p_class = {"高": "high", "中": "medium", "低": "low"}.get(priority, "")
+    
+    st.markdown(f"**指摘箇所: {finding.get('location', 'N/A')}** <span class='priority-badge priority-{p_class}'>緊急度: {priority}</span>", unsafe_allow_html=True)
+    st.markdown(f"- **現状:** {finding.get('current_state', 'N/A')}")
+    st.markdown(f"- **提案工事:** {finding.get('suggested_work', 'N/A')}")
+    if finding.get('notes'):
+        st.markdown(f"- **備考:** {finding.get('notes', 'N/A')}")
+
+def display_report(report_data, uploaded_files_dict, report_title, survey_date, compact_mode):
     """プロフェッショナルなデザインでレポートを表示する"""
     
     st.markdown('<div class="report-container">', unsafe_allow_html=True)
     
-    # 1. レポートヘッダー
+    # 1. ヘッダーとサマリー
     st.markdown(f"<h1>現場分析レポート</h1>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     col1.markdown(f"**物件名・案件名:**<br>{report_title if report_title else '（未設定）'}", unsafe_allow_html=True)
     col2.markdown(f"**調査日:**<br>{survey_date}", unsafe_allow_html=True)
     st.markdown("---")
-
-    # 2. サマリー
     st.markdown("<h2>📊 分析結果サマリー</h2>", unsafe_allow_html=True)
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for finding in item.get("findings", []) if finding.get("priority") == "高")
@@ -183,38 +156,39 @@ def display_report(report_data, uploaded_files_dict, report_title, survey_date):
     c1.metric("分析写真枚数", f"{len(report_data)} 枚")
     c2.metric("総指摘件数", f"{total_findings} 件")
     c3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
+    st.markdown("<hr>", unsafe_allow_html=True)
     
-    st.markdown('<div class="page-break"></div><hr>', unsafe_allow_html=True)
-    
-    # 3. 個別分析
+    # 2. 詳細分析
     st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
+    
     for i, report_item in enumerate(report_data):
         file_name = report_item.get("file_name")
         findings = report_item.get("findings", [])
         image_file = uploaded_files_dict.get(file_name)
-
         if not image_file: continue
 
-        st.markdown(f"<h3>{i + 1}. 写真ファイル: {file_name}</h3>", unsafe_allow_html=True)
-        st.image(image_file, use_container_width=True)
-        
-        if not findings:
-            st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
-        else:
-            for j, finding in enumerate(findings, 1):
-                st.markdown('<div class="finding-card">', unsafe_allow_html=True)
-                priority = finding.get('priority', 'N/A')
-                p_class = {"高": "high", "中": "medium", "低": "low"}.get(priority, "")
-                
-                st.markdown(f"<h5>指摘 {j}: {finding.get('location', 'N/A')}<span class='priority-badge priority-{p_class}'>緊急度: {priority}</span></h5>", unsafe_allow_html=True)
-                st.markdown(f"<p><strong>現状:</strong> {finding.get('current_state', 'N/A')}</p>", unsafe_allow_html=True)
-                st.markdown(f"<p><strong>提案工事:</strong> {finding.get('suggested_work', 'N/A')}</p>", unsafe_allow_html=True)
-                if finding.get('notes'):
-                    st.markdown(f"<p><strong>備考:</strong> {finding.get('notes', 'N/A')}</p>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-        if i < len(report_data) - 1:
-            st.markdown("<hr>")
+        if compact_mode: #【レイアウト1】コンパクト表示（印刷向け）
+            st.markdown(f'<div class="report-row">', unsafe_allow_html=True)
+            st.markdown(f"**{i + 1}. 写真ファイル:** `{file_name}`")
+            col1, col2 = st.columns([2, 3]) # 写真とテキストの比率
+            with col1:
+                st.image(image_file, use_container_width=True)
+            with col2:
+                if not findings:
+                    st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
+                else:
+                    for finding in findings:
+                        display_report_content(finding)
+            st.markdown(f'</div>', unsafe_allow_html=True)
+        else: #【レイアウト2】折りたたみ表示（確認向け）
+            with st.expander(f"**{i + 1}. 写真ファイル:** `{file_name}` ({len(findings)}件の指摘)", expanded=False):
+                st.image(image_file, use_container_width=True)
+                if not findings:
+                    st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
+                else:
+                    for finding in findings:
+                        st.markdown("---")
+                        display_report_content(finding)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -223,14 +197,15 @@ def display_report(report_data, uploaded_files_dict, report_title, survey_date):
 # ----------------------------------------------------------------------
 def main():
     inject_custom_css()
-
-    st.title("📷 AIリフォーム箇所分析＆報告書作成サービス")
-    st.markdown("リフォームや原状回復が必要な現場の写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+    
+    # --- 1. UI入力部分（印刷時には非表示） ---
+    st.markdown('<div class="no-print">', unsafe_allow_html=True)
+    st.title("📷 AIリフォーム箇所分析＆報告書作成")
+    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
     model = initialize_vertexai()
     if not model:
-        st.warning("AIモデルを読み込めませんでした。管理者にお問い合わせください。")
-        st.stop()
+        st.warning("AIモデルを読み込めませんでした。"); st.stop()
     
     with st.form("report_form"):
         st.subheader("1. レポート情報入力")
@@ -248,6 +223,7 @@ def main():
         else:
             with st.spinner("AIが写真を分析し、レポートを作成中です… この処理には数分かかることがあります。"):
                 try:
+                    # AI分析と結果保存
                     filenames = [f.name for f in uploaded_files]
                     prompt = create_report_prompt(filenames)
                     response_text = generate_report(model, uploaded_files, prompt)
@@ -260,18 +236,30 @@ def main():
                         st.session_state.survey_date = survey_date.strftime('%Y年%m月%d日')
                         st.success("✅ レポートの作成が完了しました！")
                         st.rerun()
-                    else:
-                        st.error("レポートデータの生成に失敗しました。")
+                    else: st.error("レポートデータの生成に失敗しました。")
                 except Exception as e:
                     st.error(f"分析中に予期せぬエラーが発生しました: {e}")
+    
+    st.markdown('</div>', unsafe_allow_html=True) # UI入力部分の終了
 
+    # --- 2. レポート表示部分 ---
     if 'report_data' in st.session_state:
+        # 印刷用のUI（これも印刷時には非表示）
+        st.markdown('<div class="no-print">', unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("表示と印刷の設定")
+        compact_mode = st.toggle("コンパクト表示（印刷向け）", help="ONにすると、写真を左、テキストを右に配置したPDF化に適したレイアウトになります。")
         st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使い、「送信先」で「PDFとして保存」を選択してください。")
+        st.markdown("---")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # レポート本体の表示
         display_report(
             st.session_state.report_data,
             st.session_state.uploaded_files_dict,
             st.session_state.report_title,
-            st.session_state.survey_date
+            st.session_state.survey_date,
+            compact_mode
         )
 
 if __name__ == "__main__":
