@@ -260,6 +260,12 @@ def inject_custom_css():
             margin-bottom: 0.8rem;
         }
         
+        .photo-filename {
+            font-size: 0.85rem;
+            color: #9ca3af;
+            font-weight: normal;
+        }
+        
         /* 指摘事項のスタイル */
         .finding-high {
             background: #fee2e2;
@@ -419,6 +425,12 @@ def inject_custom_css():
                 color: #000 !important;
             }
             
+            .photo-filename {
+                font-size: 0.75rem !important;
+                color: #6b7280 !important;
+                font-weight: normal !important;
+            }
+            
             .finding-high {
                 background: #fee2e2 !important;
                 border-left: 3px solid #dc2626 !important;
@@ -574,8 +586,8 @@ def create_photo_row_html(index, item, img_base64=None):
     # 写真部分（遅延読み込み対応）
     photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
     
-    # コンテンツ部分のHTML生成
-    content_html = f'<div class="photo-title">{index}. {file_name}</div>'
+    # コンテンツ部分のHTML生成（番号とファイル名を分離）
+    content_html = f'<div class="photo-title">{index}. <span class="photo-filename">{file_name}</span></div>'
     
     if findings:
         for finding in findings:
@@ -701,7 +713,8 @@ def display_editable_report(report_payload, files_dict):
                         st.info("画像を表示できません")
                 else:
                     st.info("画像なし")
-                st.caption(f"{i + 1}. {item.get('file_name', '')}")
+                # ファイル名をグレーで小さく表示
+                st.markdown(f'<p style="margin-top: 0.5rem; font-size: 0.85rem; color: #9ca3af;">{i + 1}. {item.get("file_name", "")}</p>', unsafe_allow_html=True)
             
             with col2:
                 findings = item.get("findings", [])
@@ -710,7 +723,11 @@ def display_editable_report(report_payload, files_dict):
                     # 指摘事項の編集
                     findings_to_delete = []
                     for j, finding in enumerate(findings):
-                        with st.expander(f"指摘事項 {j + 1}: {finding.get('location', '')} ({finding.get('priority', '中')})", expanded=True):
+                        # 現在の場所の値を取得（リアルタイム更新のため）
+                        current_location = finding.get('location', '')
+                        current_priority = finding.get('priority', '中')
+                        
+                        with st.expander(f"指摘事項 {j + 1}: {current_location if current_location else '(未入力)'} ({current_priority})", expanded=True):
                             # 場所
                             new_location = st.text_input(
                                 "場所",
