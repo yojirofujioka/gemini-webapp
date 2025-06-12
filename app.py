@@ -27,65 +27,7 @@ def inject_custom_css():
     """印刷用のカスタムCSSを注入する。"""
     st.markdown("""
     <style>
-        @media print {
-            /* Streamlitのヘッダー、フッター、ボタンを非表示 */
-            .stApp > header { display: none !important; }
-            .stButton { display: none !important; }
-            .stAlert { display: none !important; }
-            button { display: none !important; }
-            div[data-testid="stDecoration"] { display: none !important; }
-            
-            /* ページ設定 */
-            @page {
-                size: A4;
-                margin: 15mm;
-            }
-            
-            /* メインコンテナのパディングを調整 */
-            .main .block-container {
-                padding: 0 !important;
-                max-width: 100% !important;
-            }
-            
-            /* 印刷時は1列レイアウトに変更 */
-            [data-testid="column"] {
-                width: 100% !important;
-                flex: 100% !important;
-                max-width: 100% !important;
-            }
-            
-            /* 2列グリッドを無効化 */
-            .main [data-testid="stHorizontalBlock"] {
-                flex-direction: column !important;
-            }
-            
-            /* 写真セクションのブレイク防止 */
-            .photo-section-wrapper {
-                break-inside: avoid !important;
-                page-break-inside: avoid !important;
-                display: block !important;
-                width: 100% !important;
-                margin-bottom: 30px !important;
-                border: 1px solid #e5e7eb !important;
-                padding: 20px !important;
-                background: white !important;
-            }
-            
-            /* 画像のサイズ調整 */
-            .stImage {
-                max-width: 250px !important;
-                margin: 10px auto !important;
-            }
-            
-            /* 指摘事項のスタイル調整 */
-            .finding-high, .finding-medium, .finding-low {
-                margin-bottom: 10px !important;
-                padding: 10px !important;
-                page-break-inside: avoid !important;
-            }
-        }
-        
-        /* 通常表示時のスタイル */
+        /* 基本スタイル */
         .report-header {
             text-align: center;
             padding: 2rem 0;
@@ -93,7 +35,7 @@ def inject_custom_css():
             margin-bottom: 2rem;
         }
         
-        /* ダークモード対応のサマリーカード */
+        /* サマリーカード */
         .metric-card {
             background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
             padding: 1.5rem;
@@ -126,57 +68,101 @@ def inject_custom_css():
             font-weight: 600;
         }
         
-        /* ダークモードでも見やすい写真セクション */
-        .photo-section-wrapper {
-            background-color: rgba(255, 255, 255, 0.05);
+        /* 写真セクション（横並びレイアウト） */
+        .photo-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(229, 231, 235, 0.2);
             border-radius: 12px;
             padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            break-inside: avoid;
             page-break-inside: avoid;
+            break-inside: avoid;
         }
         
+        .photo-container {
+            flex: 0 0 300px;
+            max-width: 300px;
+        }
+        
+        .photo-img {
+            width: 100%;
+            height: auto;
+            max-height: 225px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .content-container {
+            flex: 1;
+            min-width: 0;
+            padding-left: 1rem;
+        }
+        
+        .photo-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.8rem;
+        }
+        
+        /* 指摘事項のスタイル（コンパクト版） */
         .finding-high {
             background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-            border-left: 4px solid #dc2626;
-            padding: 1rem;
-            margin-bottom: 0.8rem;
-            border-radius: 8px;
+            border-left: 3px solid #dc2626;
+            padding: 0.6rem;
+            margin-bottom: 0.6rem;
+            border-radius: 6px;
             color: #7f1d1d;
+            font-size: 0.85rem;
         }
         
         .finding-medium {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border-left: 4px solid #f59e0b;
-            padding: 1rem;
-            margin-bottom: 0.8rem;
-            border-radius: 8px;
+            border-left: 3px solid #f59e0b;
+            padding: 0.6rem;
+            margin-bottom: 0.6rem;
+            border-radius: 6px;
             color: #78350f;
+            font-size: 0.85rem;
         }
         
         .finding-low {
             background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-            border-left: 4px solid #3b82f6;
-            padding: 1rem;
-            margin-bottom: 0.8rem;
-            border-radius: 8px;
+            border-left: 3px solid #3b82f6;
+            padding: 0.6rem;
+            margin-bottom: 0.6rem;
+            border-radius: 6px;
             color: #1e3a8a;
+            font-size: 0.85rem;
+        }
+        
+        .finding-location {
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+        
+        .finding-details {
+            line-height: 1.4;
         }
         
         .observation-box {
             background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-            padding: 1rem;
+            padding: 0.8rem;
             border-radius: 8px;
             color: #064e3b;
+            font-size: 0.85rem;
         }
         
         .no-finding-box {
             background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
             color: #047857;
-            padding: 1rem;
+            padding: 0.8rem;
             text-align: center;
             border-radius: 8px;
+            font-size: 0.85rem;
         }
         
         /* ダークモード対応 */
@@ -189,9 +175,79 @@ def inject_custom_css():
                 color: #d1d5db;
             }
             
-            .photo-section-wrapper {
+            .photo-row {
                 background-color: rgba(255, 255, 255, 0.1);
                 border-color: rgba(229, 231, 235, 0.3);
+            }
+            
+            .photo-title {
+                color: #e5e7eb;
+            }
+        }
+        
+        /* 印刷用スタイル */
+        @media print {
+            /* Streamlitの要素を非表示 */
+            .stApp > header,
+            .stButton,
+            .stAlert,
+            button,
+            div[data-testid="stDecoration"],
+            div[data-testid="stToolbar"],
+            section[data-testid="stSidebar"] {
+                display: none !important;
+            }
+            
+            /* ページ設定 */
+            @page {
+                size: A4;
+                margin: 15mm;
+            }
+            
+            /* メインコンテナ */
+            .main .block-container {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            
+            /* 写真行の印刷設定 */
+            .photo-row {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin-bottom: 15px !important;
+                padding: 15px !important;
+                background: white !important;
+                border: 1px solid #ddd !important;
+            }
+            
+            /* 写真のサイズ調整 */
+            .photo-container {
+                flex: 0 0 200px !important;
+                max-width: 200px !important;
+            }
+            
+            .photo-img {
+                max-height: 150px !important;
+            }
+            
+            /* テキストサイズ調整 */
+            .photo-title {
+                font-size: 0.9rem !important;
+            }
+            
+            .finding-high,
+            .finding-medium,
+            .finding-low,
+            .observation-box,
+            .no-finding-box {
+                font-size: 0.75rem !important;
+                padding: 0.5rem !important;
+                margin-bottom: 0.4rem !important;
+            }
+            
+            /* 指摘事項の詳細 */
+            .finding-details {
+                font-size: 0.7rem !important;
             }
         }
     </style>
@@ -253,42 +309,66 @@ def parse_json_response(text):
 # ----------------------------------------------------------------------
 # 4. レポート表示の関数
 # ----------------------------------------------------------------------
-def display_finding(finding):
-    """個別の指摘事項を表示"""
+def create_photo_row_html(index, item, img_base64=None):
+    """写真と内容を横並びで表示するHTML"""
+    file_name = html.escape(str(item.get('file_name', '')))
+    findings = item.get("findings", [])
     
-    priority = finding.get('priority', '中')
-    priority_class = {
-        '高': 'finding-high',
-        '中': 'finding-medium',
-        '低': 'finding-low'
-    }.get(priority, 'finding-medium')
+    # 写真部分
+    photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
     
-    priority_emoji = {
-        '高': '🔴',
-        '中': '🟡',
-        '低': '🔵'
-    }.get(priority, '🟡')
+    # コンテンツ部分のHTML生成
+    content_html = f'<div class="photo-title">{index}. {file_name}</div>'
     
-    # HTMLエスケープ
-    location = html.escape(str(finding.get('location', 'N/A')))
-    current_state = html.escape(str(finding.get('current_state', 'N/A')))
-    suggested_work = html.escape(str(finding.get('suggested_work', 'N/A')))
+    if findings:
+        for finding in findings:
+            priority = finding.get('priority', '中')
+            priority_class = {
+                '高': 'finding-high',
+                '中': 'finding-medium',
+                '低': 'finding-low'
+            }.get(priority, 'finding-medium')
+            
+            priority_emoji = {
+                '高': '🔴',
+                '中': '🟡', 
+                '低': '🔵'
+            }.get(priority, '🟡')
+            
+            location = html.escape(str(finding.get('location', 'N/A')))
+            current_state = html.escape(str(finding.get('current_state', 'N/A')))
+            suggested_work = html.escape(str(finding.get('suggested_work', 'N/A')))
+            
+            content_html += f'''
+            <div class="{priority_class}">
+                <div class="finding-location">{priority_emoji} {location} (緊急度: {priority})</div>
+                <div class="finding-details">
+                    <div>現状: {current_state}</div>
+                    <div>提案: {suggested_work}</div>
+            '''
+            
+            if finding.get('notes'):
+                notes = html.escape(str(finding.get('notes', '')))
+                content_html += f'<div>備考: {notes}</div>'
+            
+            content_html += '</div></div>'
+    elif item.get("observation"):
+        observation = html.escape(str(item.get('observation', '')))
+        content_html += f'<div class="observation-box">📋 所見: {observation}</div>'
+    else:
+        content_html += '<div class="no-finding-box">✅ 修繕必要箇所なし</div>'
     
-    finding_html = f'''
-    <div class="{priority_class}">
-        <strong>{priority_emoji} 指摘箇所: {location}</strong> (緊急度: {priority})
-        <div style="margin-top: 0.5rem;">
-            <div><strong>現状:</strong> {current_state}</div>
-            <div><strong>提案工事:</strong> {suggested_work}</div>
+    # 全体のHTML
+    return f'''
+    <div class="photo-row">
+        <div class="photo-container">
+            {photo_html}
+        </div>
+        <div class="content-container">
+            {content_html}
+        </div>
+    </div>
     '''
-    
-    if finding.get('notes'):
-        notes = html.escape(str(finding.get('notes', '')))
-        finding_html += f'<div><strong>備考:</strong> {notes}</div>'
-    
-    finding_html += '</div></div>'
-    
-    st.markdown(finding_html, unsafe_allow_html=True)
 
 def display_full_report(report_payload, files_dict):
     report_data = report_payload.get('report_data', [])
@@ -340,53 +420,18 @@ def display_full_report(report_payload, files_dict):
     # 詳細分析結果
     st.header("📋 詳細分析結果")
     
-    # 2列レイアウトで写真を表示（印刷時は自動的に1列になる）
-    for i in range(0, len(report_data), 2):
-        cols = st.columns(2)
+    # 各写真を横並びレイアウトで表示
+    for i, item in enumerate(report_data):
+        img_base64 = None
+        if files_dict and item.get('file_name') in files_dict:
+            file_obj = files_dict[item['file_name']]
+            file_obj.seek(0)
+            img_data = file_obj.read()
+            img_base64 = base64.b64encode(img_data).decode()
         
-        for j, col in enumerate(cols):
-            if i + j < len(report_data):
-                item = report_data[i + j]
-                
-                with col:
-                    # 印刷時にページをまたがないようにラッパーdivで囲む
-                    st.markdown('<div class="photo-section-wrapper">', unsafe_allow_html=True)
-                    file_name = html.escape(str(item.get('file_name', '')))
-                    st.subheader(f"{i + j + 1}. {file_name}")
-                    
-                    # 写真を表示
-                    if files_dict and item.get('file_name') in files_dict:
-                        file_obj = files_dict[item['file_name']]
-                        file_obj.seek(0)
-                        image = Image.open(file_obj)
-                        # 画像のサイズを制限
-                        max_width = 400
-                        if image.width > max_width:
-                            ratio = max_width / image.width
-                            new_height = int(image.height * ratio)
-                            image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
-                        st.image(image, use_container_width=True)
-                    
-                    # 指摘事項を表示
-                    findings = item.get("findings", [])
-                    if findings:
-                        for finding in findings:
-                            display_finding(finding)
-                    elif item.get("observation"):
-                        observation = html.escape(str(item.get('observation', '')))
-                        st.markdown(f'''
-                            <div class="observation-box">
-                                📋 <strong>所見:</strong> {observation}
-                            </div>
-                        ''', unsafe_allow_html=True)
-                    else:
-                        st.markdown('''
-                            <div class="no-finding-box">
-                                ✅ 修繕必要箇所なし
-                            </div>
-                        ''', unsafe_allow_html=True)
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
+        # 横並びの写真行を表示
+        photo_row_html = create_photo_row_html(i + 1, item, img_base64)
+        st.markdown(photo_row_html, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
