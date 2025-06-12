@@ -184,99 +184,97 @@ def main():
             if st.button("新しいレポートを作成する", key="new_from_shared"):
                 st.session_state.clear()
                 st.query_params.clear()
+                st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             display_full_report(report_payload)
         else:
             st.error("レポートのURLが無効です。")
-            if st.button("ホームに戻る"): st.query_params.clear()
+            if st.button("ホームに戻る"): st.query_params.clear(); st.rerun()
         return
 
-    # --- レポート作成画面 ---
+    # --- レポート作成画面（st.form を使用しない） ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    if 'processing' not in st.session_state:
-        st.session_state.processing = False
-
-    # レポート作成中は何もしない
-    if st.session_state.processing:
-        return
-
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
     if not model:
         st.warning("AIモデルを読み込めませんでした。"); st.stop()
     
-    with st.form("report_form"):
-        st.subheader("1. レポート情報入力")
-        report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-        survey_date = st.date_input("調査日", date.today())
-        
-        st.subheader("2. 写真アップロード")
-        uploaded_files = st.file_uploader(
-            "分析したい写真を選択",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True,
-            key="file_uploader"
-        )
-        
-        # ★アップロード状況の表示
-        if uploaded_files:
-            st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
-        else:
-            st.info("ここに写真をドラッグ＆ドロップするか、「Browse files」ボタンを押して選択してください。")
-        
-        submitted = st.form_submit_button(
-            "レポートを作成する",
-            type="primary",
-            use_container_width=True,
-            disabled=not uploaded_files # ★ファイルがなければ非活性
-        )
+    # セッションステートでUIの値を管理
+    if 'report_title' not in st.session_state: st.session_state.report_title = "（例）〇〇ビル 301号室 原状回復工事"
+    if 'survey_date' not in st.session_state: st.session_state.survey_date = date.today()
+
+    st.subheader("1. レポート情報入力")
+    st.session_state.report_title = st.text_input("物件名・案件名", st.session_state.report_title)
+    st.session_state.survey_date = st.date_input("調査日", st.session_state.survey_date)
+    
+    st.subheader("2. 写真アップロード")
+    uploaded_files = st.file_uploader(
+        "分析したい写真を選択",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="file_uploader"
+    )
+    
+    if uploaded_files:
+        st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+    else:
+        st.info("ここに写真をドラッグ＆ドロップするか、「Browse files」ボタンを押して選択してください。")
+    
+    submitted = st.button(
+        "レポートを作成する",
+        type="primary",
+        use_container_width=True,
+        disabled=not uploaded_files # ★ファイルがなければ非活性
+    )
 
     if submitted:
-        st.session_state.processing = True
-        total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
-        progress_bar = st.progress(0, text="AI分析の準備をしています...")
-        
-        final_report_data = []
-        try:
-            for i in range(0, len(uploaded_files), BATCH_SIZE):
-                current_batch_num = (i // BATCH_SIZE) + 1
-                progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
-                progress_bar.progress(i / len(uploaded_files), text=progress_text)
+        # ★処理中にUIをクリアし、プログレスバーを表示
+        with st.empty():
+            st.session_state.processing = True
+            total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
+            progress_bar = st.progress(0, text="AI分析の準備をしています...")
+            
+            final_report_data = []
+            try:
+                for i in range(0, len(uploaded_files), BATCH_SIZE):
+                    current_batch_num = (i // BATCH_SIZE) + 1
+                    progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+                    progress_bar.progress(i / len(uploaded_files), text=progress_text)
 
-                file_batch = uploaded_files[i:i + BATCH_SIZE]
-                filenames = [f.name for f in file_batch]
-                prompt = create_report_prompt(filenames)
+                    file_batch = uploaded_files[i:i + BATCH_SIZE]
+                    filenames = [f.name for f in file_batch]
+                    prompt = create_report_prompt(filenames)
+                    
+                    response_text = generate_ai_report(model, file_batch, prompt)
+                    batch_report_data = parse_json_response(response_text)
+                    
+                    if batch_report_data:
+                        final_report_data.extend(batch_report_data)
+                    else:
+                        st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。このバッチはスキップされます。")
                 
-                response_text = generate_ai_report(model, file_batch, prompt)
-                batch_report_data = parse_json_response(response_text)
+                progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
                 
-                if batch_report_data:
-                    final_report_data.extend(batch_report_data)
-                else:
-                    st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。このバッチはスキップされます。")
-            
-            progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
-            
-            st.session_state.files_dict = {f.name: f for f in uploaded_files}
-            report_payload = {
-                "title": report_title,
-                "date": survey_date.strftime('%Y年%m月%d日'),
-                "report_data": final_report_data
-            }
-            
-            st.session_state.report_payload = report_payload
-            st.query_params["report"] = encode_report_data(report_payload)
-            
-        except Exception as e:
-            st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
-        finally:
-            st.session_state.processing = False
-            progress_bar.empty()
-            st.rerun() # 結果表示のために再描画
+                st.session_state.files_dict = {f.name: f for f in uploaded_files}
+                report_payload = {
+                    "title": st.session_state.report_title,
+                    "date": st.session_state.survey_date.strftime('%Y年%m月%d日'),
+                    "report_data": final_report_data
+                }
+                
+                st.session_state.report_payload = report_payload
+                st.query_params["report"] = encode_report_data(report_payload)
+                
+            except Exception as e:
+                st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
+            finally:
+                st.session_state.processing = False
+                st.rerun()
 
     # セッションにレポートデータがあれば表示
     if 'report_payload' in st.session_state:
+        st.success("✅ レポートの作成が完了しました！")
         st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
         st.info("ℹ️ このページのURLを共有すると、テキストのみのレポートが相手に表示されます。")
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
