@@ -20,7 +20,7 @@ try:
     GCP_SECRETS = st.secrets["gcp"]
     GCP_PROJECT_ID = GCP_SECRETS["project_id"]
     GCP_REGION = "asia-northeast1"  # モデルが対応しているリージョン
-    MODEL_NAME = "gemini-1.5-pro-001" # 使用するモデル名
+    MODEL_NAME = "gemini-1.5-pro" # 使用するモデル名
     SERVICE_ACCOUNT_INFO = json.loads(GCP_SECRETS["gcp_service_account"])
 except Exception as e:
     st.error(f"StreamlitのSecrets設定の読み込みに失敗しました。`[gcp]`セクションと`project_id`, `gcp_service_account`を確認してください。エラー: {e}")
