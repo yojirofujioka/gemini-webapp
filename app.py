@@ -35,7 +35,31 @@ if 'edited_report' not in st.session_state:
     st.session_state.edited_report = None
 
 # ----------------------------------------------------------------------
-# 2. デザインとGCP初期化
+# 2. パスワード認証
+# ----------------------------------------------------------------------
+# secrets.tomlから安全にパスワード取得
+PASSWORD = st.secrets["PASSWORD"]
+
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == PASSWORD:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+    
+    if "password_correct" not in st.session_state:
+        st.text_input("パスワードを入力してください(半角小文字)", type="password", on_change=password_entered, key="password")
+        st.stop()
+    elif not st.session_state["password_correct"]:
+        st.text_input("パスワードを入力してください（半角小文字）", type="password", on_change=password_entered, key="password")
+        st.error("パスワードが間違っています。")
+        st.stop()
+    else:
+        return True
+
+# ----------------------------------------------------------------------
+# 3. デザインとGCP初期化
 # ----------------------------------------------------------------------
 def inject_custom_css():
     """印刷用のカスタムCSSを注入する。"""
@@ -79,7 +103,6 @@ def inject_custom_css():
             font-weight: 500 !important;
             opacity: 1 !important;
             font-size: 0.875rem !important;
-            text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
         }
         
@@ -95,6 +118,20 @@ def inject_custom_css():
         
         [data-testid="stTextInput"] input:focus,
         .stTextInput input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 1px #3b82f6 !important;
+        }
+        
+        /* パスワード入力フィールド */
+        input[type="password"] {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            font-family: inherit !important;
+        }
+        
+        input[type="password"]:focus {
             border-color: #3b82f6 !important;
             box-shadow: 0 0 0 1px #3b82f6 !important;
         }
@@ -130,6 +167,31 @@ def inject_custom_css():
         [data-testid="stFileUploadDropzone"] span {
             color: #6b7280 !important;
             font-size: 0.875rem !important;
+        }
+        
+        /* テキストエリア */
+        [data-testid="stTextArea"] textarea,
+        .stTextArea textarea {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            font-size: 0.875rem !important;
+        }
+        
+        [data-testid="stTextArea"] textarea:focus,
+        .stTextArea textarea:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 1px #3b82f6 !important;
+        }
+        
+        /* セレクトボックス */
+        [data-testid="stSelectbox"] > div > div,
+        .stSelectbox > div > div {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
         }
         
         /* ========== ボタンのスタイル ========== */
@@ -207,6 +269,30 @@ def inject_custom_css():
             border-radius: 0 !important;
         }
         
+        /* エクスパンダー */
+        [data-testid="stExpander"] {
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            background-color: #ffffff !important;
+        }
+        
+        [data-testid="stExpander"] summary {
+            background-color: #f9fafb !important;
+            font-weight: 500 !important;
+            color: #1f2937 !important;
+        }
+        
+        [data-testid="stExpander"] summary:hover {
+            background-color: #f3f4f6 !important;
+        }
+        
+        /* セクション区切り線 */
+        hr {
+            border: none !important;
+            border-top: 1px solid #e5e7eb !important;
+            margin: 2rem 0 !important;
+        }
+        
         /* ========== カスタムスタイル ========== */
         /* 基本スタイル */
         .report-header {
@@ -275,7 +361,6 @@ def inject_custom_css():
             font-size: 0.875rem;
             color: #6b7280;
             font-weight: 500;
-            text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         
@@ -318,7 +403,6 @@ def inject_custom_css():
             font-weight: 500;
             color: #1f2937;
             margin-bottom: 1rem;
-            text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         
@@ -365,7 +449,6 @@ def inject_custom_css():
             font-weight: 600;
             margin-bottom: 0.5rem;
             font-size: 0.875rem;
-            text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         
@@ -627,7 +710,7 @@ def initialize_vertexai():
         return None
 
 # ----------------------------------------------------------------------
-# 3. AIとデータ処理の関数
+# 4. AIとデータ処理の関数
 # ----------------------------------------------------------------------
 def create_report_prompt(filenames):
     file_list_str = "\n".join([f"- {name}" for name in filenames])
@@ -668,7 +751,7 @@ def parse_json_response(text):
         return None
 
 # ----------------------------------------------------------------------
-# 4. レポート表示の関数
+# 5. レポート表示の関数
 # ----------------------------------------------------------------------
 def optimize_image_for_display(file_obj, max_width=800):
     """画像を最適化してbase64エンコード"""
@@ -1031,11 +1114,15 @@ def display_full_report(report_payload, files_dict):
     status_text.empty()
 
 # ----------------------------------------------------------------------
-# 5. メインアプリケーション
+# 6. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
     # CSSを最初に注入して全体のスタイルを設定
     inject_custom_css()
+    
+    # パスワード認証
+    if not check_password():
+        return
     
     model = initialize_vertexai()
 
@@ -1116,7 +1203,7 @@ def main():
         st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
     
     # ボタンの作成（処理中は無効化）
-    button_label = "処理中..." if st.session_state.processing else "レポートを作成する"
+                button_label = "処理中..." if st.session_state.processing else "レポートを作成"
     button_disabled = not uploaded_files or st.session_state.processing
     
     submitted = st.button(
