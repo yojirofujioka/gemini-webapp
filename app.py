@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 import json
@@ -20,6 +21,14 @@ st.set_page_config(
     layout="wide"
 )
 BATCH_SIZE = 10 # 一度にAIに送信する写真の枚数
+
+# セッション状態の初期化
+if 'processing' not in st.session_state:
+    st.session_state.processing = False
+if 'report_payload' not in st.session_state:
+    st.session_state.report_payload = None
+if 'files_dict' not in st.session_state:
+    st.session_state.files_dict = None
 
 # ----------------------------------------------------------------------
 # 2. デザインとGCP初期化
@@ -168,11 +177,7 @@ def inject_custom_css():
             .metric-card {
                 background: #374151;
                 border-color: #4b5563;
-            /* 印刷ボタンを非表示 */
-            button[onclick*="print"] {
-                display: none !important;
             }
-        }
             
             .metric-value {
                 /* ダークモードでも見やすい明るい色 */
@@ -198,37 +203,30 @@ def inject_custom_css():
             }
         }
         
-        /* 印刷ボタンのスタイル */
-        .print-button {
-            background-color: #10b981;
-            color: white;
-            padding: 0.5rem 1.5rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 500;
-            transition: background-color 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .print-button:hover {
-            background-color: #059669;
-        }
-        
         /* 印刷用スタイル */
         @media print {
             /* Streamlitの要素を非表示 */
+            header[data-testid="stHeader"],
             .stApp > header,
             .stButton,
             .stAlert,
+            .stProgress,
+            .stInfo,
+            .stSuccess,
             button,
-            .print-button,
+            .element-container:has(.stButton),
             div[data-testid="stDecoration"],
             div[data-testid="stToolbar"],
-            section[data-testid="stSidebar"] {
+            section[data-testid="stSidebar"],
+            .st-emotion-cache-1wrcr25,
+            .st-emotion-cache-12w0qpk,
+            footer {
+                display: none !important;
+            }
+            
+            /* 印刷ボタンとヒントを非表示 */
+            [data-testid="column"]:has(button),
+            .stCaption {
                 display: none !important;
             }
             
@@ -238,10 +236,27 @@ def inject_custom_css():
                 margin: 15mm;
             }
             
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            
             /* メインコンテナ */
             .main .block-container {
                 padding: 0 !important;
                 max-width: 100% !important;
+            }
+            
+            /* タイトルとヘッダー */
+            h1, h2, h3 {
+                page-break-after: avoid !important;
+            }
+            
+            /* サマリーカード */
+            .metric-card {
+                background: white !important;
+                border: 1px solid #ddd !important;
+                page-break-inside: avoid !important;
             }
             
             /* 写真行の印刷設定 */
@@ -262,11 +277,14 @@ def inject_custom_css():
             
             .photo-img {
                 max-height: 150px !important;
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
             }
             
             /* テキストサイズ調整 */
             .photo-title {
                 font-size: 0.9rem !important;
+                color: black !important;
             }
             
             .finding-high,
@@ -277,11 +295,35 @@ def inject_custom_css():
                 font-size: 0.75rem !important;
                 padding: 0.5rem !important;
                 margin-bottom: 0.4rem !important;
+                print-color-adjust: exact !important;
+                -webkit-print-color-adjust: exact !important;
             }
             
             /* 指摘事項の詳細 */
             .finding-details {
                 font-size: 0.7rem !important;
+                color: black !important;
+            }
+            
+            /* 全体の文字色を黒に */
+            * {
+                color: black !important;
+            }
+            
+            /* 背景色を維持 */
+            .finding-high {
+                background: #fee2e2 !important;
+                border-color: #dc2626 !important;
+            }
+            
+            .finding-medium {
+                background: #fef3c7 !important;
+                border-color: #f59e0b !important;
+            }
+            
+            .finding-low {
+                background: #dbeafe !important;
+                border-color: #3b82f6 !important;
             }
         }
     </style>
@@ -343,13 +385,37 @@ def parse_json_response(text):
 # ----------------------------------------------------------------------
 # 4. レポート表示の関数
 # ----------------------------------------------------------------------
+def optimize_image_for_display(file_obj, max_width=800):
+    """画像を最適化してbase64エンコード"""
+    try:
+        file_obj.seek(0)
+        img = Image.open(file_obj)
+        
+        # 画像が大きすぎる場合はリサイズ
+        if img.width > max_width:
+            ratio = max_width / img.width
+            new_height = int(img.height * ratio)
+            img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        
+        # JPEGに変換して圧縮
+        output = io.BytesIO()
+        img = img.convert('RGB') if img.mode != 'RGB' else img
+        img.save(output, format='JPEG', quality=85, optimize=True)
+        output.seek(0)
+        
+        return base64.b64encode(output.read()).decode()
+    except Exception as e:
+        st.warning(f"画像の最適化中にエラーが発生しました: {e}")
+        file_obj.seek(0)
+        return base64.b64encode(file_obj.read()).decode()
+
 def create_photo_row_html(index, item, img_base64=None):
     """写真と内容を横並びで表示するHTML"""
     file_name = html.escape(str(item.get('file_name', '')))
     findings = item.get("findings", [])
     
-    # 写真部分
-    photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
+    # 写真部分（遅延読み込み対応）
+    photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
     
     # コンテンツ部分のHTML生成
     content_html = f'<div class="photo-title">{index}. {file_name}</div>'
@@ -454,18 +520,30 @@ def display_full_report(report_payload, files_dict):
     # 詳細分析結果
     st.header("📋 詳細分析結果")
     
+    # プログレスバーで画像処理状況を表示
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
     # 各写真を横並びレイアウトで表示
     for i, item in enumerate(report_data):
+        # 進捗状況を更新
+        progress = (i + 1) / len(report_data)
+        progress_bar.progress(progress)
+        status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
+        
         img_base64 = None
         if files_dict and item.get('file_name') in files_dict:
             file_obj = files_dict[item['file_name']]
-            file_obj.seek(0)
-            img_data = file_obj.read()
-            img_base64 = base64.b64encode(img_data).decode()
+            # 画像を最適化
+            img_base64 = optimize_image_for_display(file_obj)
         
         # 横並びの写真行を表示
         photo_row_html = create_photo_row_html(i + 1, item, img_base64)
         st.markdown(photo_row_html, unsafe_allow_html=True)
+    
+    # プログレスバーを削除
+    progress_bar.empty()
+    status_text.empty()
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -475,24 +553,62 @@ def main():
     model = initialize_vertexai()
 
     # --- 状態1: レポートが生成済み ---
-    if 'report_payload' in st.session_state:
+    if st.session_state.report_payload is not None:
         st.success("✅ レポートの作成が完了しました！")
         
         # 印刷説明と印刷ボタンを横並びで配置
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
-            st.info("💡 PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択するか、右のボタンをクリックしてください。")
+            st.info("💡 PDFとして保存するには、下のボタンをクリックするか、Ctrl+P（Windows）/ Cmd+P（Mac）を押してください。")
         with col2:
-            # カスタム印刷ボタン
-            st.markdown("""
-                <button class="print-button" onclick="window.print()">
-                    🖨️ 印刷/PDF保存
-                </button>
-            """, unsafe_allow_html=True)
+            # Streamlitボタンとして実装
+            print_button = st.button("🖨️ 印刷/PDF保存", key="print_btn", type="primary")
         with col3:
             if st.button("🔄 新しいレポートを作成", key="new_from_result"):
                 st.session_state.clear()
                 st.rerun()
+        
+        # 印刷ボタンがクリックされた場合
+        if print_button:
+            # JavaScriptを使って印刷ダイアログを開く
+            js_code = """
+            <script>
+            // 印刷ダイアログを開く
+            function printReport() {
+                // 少し遅延を入れて確実に動作させる
+                setTimeout(function() {
+                    window.print();
+                }, 100);
+            }
+            
+            // ページ読み込み後に実行
+            if (document.readyState === 'complete') {
+                printReport();
+            } else {
+                window.addEventListener('load', printReport);
+            }
+            </script>
+            """
+            components.html(js_code, height=0)
+        
+        # 代替方法として、印刷用リンクも提供
+        st.markdown("""
+            <style>
+                .print-link {
+                    display: inline-block;
+                    margin-top: 0.5rem;
+                    color: #0066cc;
+                    text-decoration: underline;
+                    cursor: pointer;
+                }
+                .print-link:hover {
+                    color: #0052a3;
+                }
+            </style>
+            <a href="javascript:window.print()" class="print-link">
+                📄 印刷がうまくいかない場合はこちらをクリック
+            </a>
+        """, unsafe_allow_html=True)
         
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
@@ -505,36 +621,43 @@ def main():
         st.warning("AIモデルを読み込めませんでした。")
         st.stop()
 
-    report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
-    survey_date = st.date_input("調査日", date.today())
+    # 処理中の場合、警告メッセージを表示
+    if st.session_state.processing:
+        st.warning("⏳ 現在処理中です。しばらくお待ちください...")
+        
+    report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事", disabled=st.session_state.processing)
+    survey_date = st.date_input("調査日", date.today(), disabled=st.session_state.processing)
     
     uploaded_files = st.file_uploader(
         "分析したい写真を選択",
         type=["png", "jpg", "jpeg"],
         accept_multiple_files=True,
-        key="file_uploader"
+        key="file_uploader",
+        disabled=st.session_state.processing
     )
     
-    if uploaded_files:
+    if uploaded_files and not st.session_state.processing:
         st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
     
-    # 処理中はボタンを無効化
-    is_processing = st.session_state.get('processing', False)
-    
-    # ボタンの状態を視覚的に表示
-    if is_processing:
-        st.warning("⏳ 処理中です。しばらくお待ちください...")
+    # ボタンの作成（処理中は無効化）
+    button_label = "処理中..." if st.session_state.processing else "レポートを作成する"
+    button_disabled = not uploaded_files or st.session_state.processing
     
     submitted = st.button(
-        "レポートを作成する" if not is_processing else "処理中...",
+        button_label,
         type="primary",
         use_container_width=True,
-        disabled=not uploaded_files or is_processing
+        disabled=button_disabled,
+        key="submit_button"
     )
 
-    if submitted:
+    if submitted and not st.session_state.processing:
+        # 処理開始前に即座にprocessingフラグを設定
         st.session_state.processing = True
+        st.rerun()  # 画面を更新してボタンを無効化
         
+    # 処理中の場合、実際の処理を実行
+    if st.session_state.processing and uploaded_files:
         ui_placeholder = st.empty()
         with ui_placeholder.container():
             total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
@@ -561,17 +684,20 @@ def main():
                 
                 progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
                 
+                # レポートの保存
                 st.session_state.files_dict = {f.name: f for f in uploaded_files}
-                report_payload = {
+                st.session_state.report_payload = {
                     "title": report_title,
                     "date": survey_date.strftime('%Y年%m月%d日'),
                     "report_data": final_report_data
                 }
-                st.session_state.report_payload = report_payload
                 
             except Exception as e:
                 st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
+                st.session_state.processing = False
+                st.session_state.report_payload = None
             finally:
+                # 処理完了後にフラグをリセット
                 st.session_state.processing = False
                 ui_placeholder.empty()
                 st.rerun()
