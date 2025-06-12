@@ -143,12 +143,16 @@ def display_full_report(report_payload, files_dict):
         st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
         for i, item in enumerate(report_data):
             st.markdown('<div class="photo-section">', unsafe_allow_html=True)
-            st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
             col1, col2 = st.columns([2, 3])
+            
+            # 写真を左のカラムに表示
             with col1:
                 if files_dict and item.get('file_name') in files_dict:
                     st.image(files_dict[item['file_name']], use_container_width=True)
+            
+            # タイトルとテキストを右のカラムに表示
             with col2:
+                st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
                 findings = item.get("findings", [])
                 if findings:
                     for find in findings:
