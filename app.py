@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 import json
@@ -37,35 +36,58 @@ def inject_custom_css():
     """印刷用のカスタムCSSを注入する。"""
     st.markdown("""
     <style>
+        /* 全体の背景を白に */
+        .stApp, .main {
+            background-color: #ffffff !important;
+        }
+        
+        /* タイトルを黒に */
+        h1, h2, h3 {
+            color: #1f2937 !important;
+        }
+        
         /* 基本スタイル */
         .report-header {
             text-align: center;
             padding: 2rem 0;
             border-bottom: 3px solid #1F2937;
             margin-bottom: 2rem;
+            background: #ffffff;
+        }
+        
+        /* 印刷ガイダンス */
+        .print-guidance {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .print-guidance strong {
+            color: #d97706;
+            font-size: 1.1rem;
         }
         
         /* サマリーカード */
         .metric-card {
             background: #ffffff;
-            border: 2px solid #e5e7eb;
+            border: 2px solid #d1d5db;
             padding: 1.5rem;
-            border-radius: 12px;
+            border-radius: 8px;
             text-align: center;
             height: 100%;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         .metric-value {
             font-size: 3rem;
             font-weight: 800;
             margin-bottom: 0.5rem;
-            /* ダークモードでも見やすい色に変更 */
             color: #1f2937;
         }
         
         .metric-value-high {
-            /* 緊急度「高」は赤系で統一 */
             color: #dc2626;
         }
         
@@ -80,9 +102,9 @@ def inject_custom_css():
             display: flex;
             gap: 1.5rem;
             margin-bottom: 2rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(229, 231, 235, 0.2);
-            border-radius: 12px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
             padding: 1.5rem;
             page-break-inside: avoid;
             break-inside: avoid;
@@ -99,7 +121,8 @@ def inject_custom_css():
             max-height: 225px;
             object-fit: contain;
             border-radius: 8px;
-            border: 1px solid #e5e7eb;
+            border: 2px solid #d1d5db;
+            background: #f9fafb;
         }
         
         .content-container {
@@ -111,13 +134,13 @@ def inject_custom_css():
         .photo-title {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #374151;
+            color: #1f2937;
             margin-bottom: 0.8rem;
         }
         
-        /* 指摘事項のスタイル（コンパクト版） */
+        /* 指摘事項のスタイル */
         .finding-high {
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            background: #fee2e2;
             border-left: 3px solid #dc2626;
             padding: 0.6rem;
             margin-bottom: 0.6rem;
@@ -127,7 +150,7 @@ def inject_custom_css():
         }
         
         .finding-medium {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            background: #fef3c7;
             border-left: 3px solid #f59e0b;
             padding: 0.6rem;
             margin-bottom: 0.6rem;
@@ -137,7 +160,7 @@ def inject_custom_css():
         }
         
         .finding-low {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            background: #dbeafe;
             border-left: 3px solid #3b82f6;
             padding: 0.6rem;
             margin-bottom: 0.6rem;
@@ -156,7 +179,7 @@ def inject_custom_css():
         }
         
         .observation-box {
-            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            background: #d1fae5;
             padding: 0.8rem;
             border-radius: 8px;
             color: #064e3b;
@@ -164,7 +187,7 @@ def inject_custom_css():
         }
         
         .no-finding-box {
-            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            background: #d1fae5;
             color: #047857;
             padding: 0.8rem;
             text-align: center;
@@ -172,62 +195,35 @@ def inject_custom_css():
             font-size: 0.85rem;
         }
         
-        /* ダークモード対応 */
-        @media (prefers-color-scheme: dark) {
-            .metric-card {
-                background: #374151;
-                border-color: #4b5563;
-            }
-            
-            .metric-value {
-                /* ダークモードでも見やすい明るい色 */
-                color: #f3f4f6;
-            }
-            
-            .metric-value-high {
-                /* 緊急度「高」は明るい赤 */
-                color: #ef4444;
-            }
-            
-            .metric-label {
-                color: #d1d5db;
-            }
-            
-            .photo-row {
-                background-color: rgba(255, 255, 255, 0.1);
-                border-color: rgba(229, 231, 235, 0.3);
-            }
-            
-            .photo-title {
-                color: #e5e7eb;
-            }
-        }
-        
-        /* 印刷用スタイル */
+        /* 印刷用スタイル - Streamlitの印刷機能用 */
         @media print {
+            /* 背景を白に設定 */
+            body, .stApp {
+                background: white !important;
+                background-color: white !important;
+            }
+            
             /* Streamlitの要素を非表示 */
             header[data-testid="stHeader"],
-            .stApp > header,
-            .stButton,
+            [data-testid="stToolbar"],
             .stAlert,
             .stProgress,
             .stInfo,
             .stSuccess,
+            .print-guidance,
             button,
-            .element-container:has(.stButton),
-            div[data-testid="stDecoration"],
-            div[data-testid="stToolbar"],
-            section[data-testid="stSidebar"],
+            [data-testid="column"]:has(button),
+            .stCaption,
             .st-emotion-cache-1wrcr25,
             .st-emotion-cache-12w0qpk,
             footer {
                 display: none !important;
             }
             
-            /* 印刷ボタンとヒントを非表示 */
-            [data-testid="column"]:has(button),
-            .stCaption {
-                display: none !important;
+            /* メインコンテンツの背景を白に */
+            .main, .block-container, section.main > div {
+                background: white !important;
+                background-color: white !important;
             }
             
             /* ページ設定 */
@@ -236,37 +232,39 @@ def inject_custom_css():
                 margin: 15mm;
             }
             
-            body {
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-            }
-            
-            /* メインコンテナ */
-            .main .block-container {
-                padding: 0 !important;
-                max-width: 100% !important;
-            }
-            
             /* タイトルとヘッダー */
+            .report-header {
+                border-bottom: 2px solid #333 !important;
+                background: white !important;
+            }
+            
             h1, h2, h3 {
+                color: #000 !important;
                 page-break-after: avoid !important;
             }
             
             /* サマリーカード */
             .metric-card {
                 background: white !important;
-                border: 1px solid #ddd !important;
+                border: 1px solid #333 !important;
                 page-break-inside: avoid !important;
+            }
+            
+            .metric-value {
+                color: #000 !important;
+            }
+            
+            .metric-value-high {
+                color: #dc2626 !important;
             }
             
             /* 写真行の印刷設定 */
             .photo-row {
                 page-break-inside: avoid !important;
-                break-inside: avoid !important;
                 margin-bottom: 15px !important;
                 padding: 15px !important;
                 background: white !important;
-                border: 1px solid #ddd !important;
+                border: 1px solid #333 !important;
             }
             
             /* 写真のサイズ調整 */
@@ -277,56 +275,80 @@ def inject_custom_css():
             
             .photo-img {
                 max-height: 150px !important;
-                print-color-adjust: exact !important;
-                -webkit-print-color-adjust: exact !important;
+                border: 1px solid #333 !important;
             }
             
-            /* テキストサイズ調整 */
+            /* テキストスタイル */
             .photo-title {
                 font-size: 0.9rem !important;
-                color: black !important;
+                color: #000 !important;
             }
             
-            .finding-high,
-            .finding-medium,
-            .finding-low,
-            .observation-box,
-            .no-finding-box {
-                font-size: 0.75rem !important;
-                padding: 0.5rem !important;
-                margin-bottom: 0.4rem !important;
-                print-color-adjust: exact !important;
-                -webkit-print-color-adjust: exact !important;
-            }
-            
-            /* 指摘事項の詳細 */
-            .finding-details {
-                font-size: 0.7rem !important;
-                color: black !important;
-            }
-            
-            /* 全体の文字色を黒に */
-            * {
-                color: black !important;
-            }
-            
-            /* 背景色を維持 */
             .finding-high {
                 background: #fee2e2 !important;
-                border-color: #dc2626 !important;
+                border-left: 3px solid #dc2626 !important;
+                color: #7f1d1d !important;
             }
             
             .finding-medium {
                 background: #fef3c7 !important;
-                border-color: #f59e0b !important;
+                border-left: 3px solid #f59e0b !important;
+                color: #78350f !important;
             }
             
             .finding-low {
                 background: #dbeafe !important;
-                border-color: #3b82f6 !important;
+                border-left: 3px solid #3b82f6 !important;
+                color: #1e3a8a !important;
+            }
+            
+            .observation-box {
+                background: #d1fae5 !important;
+                color: #064e3b !important;
+            }
+            
+            .no-finding-box {
+                background: #d1fae5 !important;
+                color: #047857 !important;
+            }
+            
+            .finding-details {
+                font-size: 0.7rem !important;
+            }
+            
+            /* 全ての要素の背景を白に */
+            * {
+                background-color: transparent !important;
+            }
+            
+            /* ベースの背景を白に */
+            html, body {
+                background: white !important;
+                background-color: white !important;
+            }
+        }
+        
+        /* Ctrl+Pを無効化 */
+        @media screen {
+            body {
+                -webkit-user-select: text;
+                -moz-user-select: text;
+                -ms-user-select: text;
+                user-select: text;
             }
         }
     </style>
+    
+    <script>
+        // Ctrl+P / Cmd+Pを無効化
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                alert('PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択してください。');
+                return false;
+            }
+        });
+    </script>
     """, unsafe_allow_html=True)
 
 @st.cache_resource
@@ -556,59 +578,19 @@ def main():
     if st.session_state.report_payload is not None:
         st.success("✅ レポートの作成が完了しました！")
         
-        # 印刷説明と印刷ボタンを横並びで配置
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            st.info("💡 PDFとして保存するには、下のボタンをクリックするか、Ctrl+P（Windows）/ Cmd+P（Mac）を押してください。")
-        with col2:
-            # Streamlitボタンとして実装
-            print_button = st.button("🖨️ 印刷/PDF保存", key="print_btn", type="primary")
-        with col3:
-            if st.button("🔄 新しいレポートを作成", key="new_from_result"):
-                st.session_state.clear()
-                st.rerun()
-        
-        # 印刷ボタンがクリックされた場合
-        if print_button:
-            # JavaScriptを使って印刷ダイアログを開く
-            js_code = """
-            <script>
-            // 印刷ダイアログを開く
-            function printReport() {
-                // 少し遅延を入れて確実に動作させる
-                setTimeout(function() {
-                    window.print();
-                }, 100);
-            }
-            
-            // ページ読み込み後に実行
-            if (document.readyState === 'complete') {
-                printReport();
-            } else {
-                window.addEventListener('load', printReport);
-            }
-            </script>
-            """
-            components.html(js_code, height=0)
-        
-        # 代替方法として、印刷用リンクも提供
+        # 印刷ガイダンス（目立つように表示）
         st.markdown("""
-            <style>
-                .print-link {
-                    display: inline-block;
-                    margin-top: 0.5rem;
-                    color: #0066cc;
-                    text-decoration: underline;
-                    cursor: pointer;
-                }
-                .print-link:hover {
-                    color: #0052a3;
-                }
-            </style>
-            <a href="javascript:window.print()" class="print-link">
-                📄 印刷がうまくいかない場合はこちらをクリック
-            </a>
+            <div class="print-guidance">
+                <strong>📄 PDFとして保存する方法：</strong><br>
+                画面右上の「⋮」（3点メニュー）をクリックして、<br>
+                <strong style="font-size: 1.3rem;">「Print」</strong> を選択してください
+            </div>
         """, unsafe_allow_html=True)
+        
+        # 新しいレポート作成ボタンのみ表示
+        if st.button("🔄 新しいレポートを作成", key="new_from_result", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
         
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
