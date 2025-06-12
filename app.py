@@ -15,7 +15,7 @@ import base64
 # 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
-    page_title="AIリフォーム箇所分析レポート",
+    page_title="AIリフォーム分析レポート",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
@@ -163,20 +163,6 @@ def inject_custom_css():
             background-color: #3b82f6 !important;
         }
         
-        /* コードブロックを非表示（レポート表示時） */
-        .report-container .stCodeBlock,
-        .report-container pre.language-text,
-        .report-container pre.language-python,
-        .report-container pre.language-json,
-        .report-container pre.language-javascript,
-        .report-container pre.language-html,
-        .report-container pre.language-css,
-        .report-container pre[class*="language-"],
-        .report-container .highlight,
-        .report-container .hljs {
-            display: none !important;
-        }
-        
         /* ========== カスタムスタイル ========== */
         /* 基本スタイル */
         .report-header {
@@ -240,11 +226,6 @@ def inject_custom_css():
             padding: 1.5rem;
             page-break-inside: avoid;
             break-inside: avoid;
-        }
-        
-        /* 最後の写真行のマージンを削除 */
-        .photo-row:last-child {
-            margin-bottom: 0;
         }
         
         .photo-container {
@@ -332,25 +313,6 @@ def inject_custom_css():
             font-size: 0.85rem;
         }
         
-        /* レポートコンテンツの最終要素 */
-        .report-content-end {
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        /* レポート表示モード時はコードブロックを完全に非表示 */
-        body:has(.report-mode-marker) .stCodeBlock,
-        body:has(.report-mode-marker) pre,
-        body:has(.report-mode-marker) code,
-        body:has(.report-mode-marker) [data-testid="stCode"],
-        body:has(.report-mode-marker) .element-container:has(pre),
-        body:has(.report-mode-marker) .element-container:has(code) {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            overflow: hidden !important;
-        }
-        
         /* ========== 印刷用スタイル ========== */
         @media print {
             /* 背景を白に設定 */
@@ -372,31 +334,7 @@ def inject_custom_css():
             .stCaption,
             .st-emotion-cache-1wrcr25,
             .st-emotion-cache-12w0qpk,
-            footer,
-            /* コードブロックと開発者ツールを非表示 */
-            .stCodeBlock,
-            pre,
-            code,
-            .element-container:has(pre),
-            .element-container:has(code),
-            [data-testid="stCode"],
-            [data-testid="stCodeBlock"],
-            .stMarkdown pre,
-            .stMarkdown code,
-            /* 黒い背景の要素を非表示 */
-            [style*="background-color: black"],
-            [style*="background: black"],
-            [style*="background-color: #000"],
-            [style*="background: #000"],
-            [style*="background-color: rgb(0, 0, 0)"],
-            [style*="background: rgb(0, 0, 0)"],
-            /* 開発者ツール関連 */
-            .dev-tools,
-            .console,
-            .inspector,
-            #react-devtools-root,
-            [class*="devtools"],
-            [id*="devtools"] {
+            footer {
                 display: none !important;
             }
             
@@ -404,19 +342,12 @@ def inject_custom_css():
             .main, .block-container, section.main > div {
                 background: white !important;
                 background-color: white !important;
-                padding-bottom: 0 !important;
-                margin-bottom: 0 !important;
             }
             
             /* ページ設定 */
             @page {
                 size: A4;
                 margin: 15mm;
-            }
-            
-            /* 最後のページで余分な改ページを防ぐ */
-            @page :last {
-                margin-bottom: 0;
             }
             
             /* タイトルとヘッダー */
@@ -452,12 +383,6 @@ def inject_custom_css():
                 padding: 15px !important;
                 background: white !important;
                 border: 1px solid #333 !important;
-            }
-            
-            /* 最後の写真行 */
-            .photo-row:last-child {
-                margin-bottom: 0 !important;
-                page-break-after: avoid !important;
             }
             
             /* 写真のサイズ調整 */
@@ -519,50 +444,6 @@ def inject_custom_css():
                 background: white !important;
                 background-color: white !important;
             }
-            
-            /* レポートの最後の要素 */
-            .report-content-end {
-                margin-bottom: 0 !important;
-                padding-bottom: 0 !important;
-                page-break-after: avoid !important;
-            }
-            
-            /* すべての黒背景要素とコード関連要素を強制的に非表示 */
-            .stApp > div > div > div > div[style*="background"],
-            .stApp [class*="css"][style*="background: rgb(0"],
-            .stApp [class*="css"][style*="background-color: rgb(0"],
-            div[class*="photo-row"] {
-                background: white !important;
-                background-color: white !important;
-            }
-            
-            /* 印刷に不要な要素を完全に除去 */
-            .stApp > div > div > div > div:has(pre),
-            .stApp > div > div > div > div:has(code) {
-                display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-                overflow: hidden !important;
-            }
-            
-            /* 余分なページブレークを防ぐ */
-            .stMarkdown:last-child,
-            .element-container:last-child,
-            div.row-widget:last-child {
-                page-break-after: avoid !important;
-                margin-bottom: 0 !important;
-                padding-bottom: 0 !important;
-            }
-            
-            /* その他の不要な要素 */
-            .css-1v0mbdj,
-            .css-1cpxqw2,
-            iframe,
-            script,
-            noscript {
-                display: none !important;
-            }
-        }
         }
         
         /* Ctrl+Pを無効化 */
@@ -584,22 +465,6 @@ def inject_custom_css():
                 alert('PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択してください。');
                 return false;
             }
-        });
-        
-        // 印刷前にコード要素を削除
-        window.addEventListener('beforeprint', function() {
-            // コードブロックを非表示
-            const codeElements = document.querySelectorAll('pre, code, .stCodeBlock, [data-testid="stCode"], .highlight');
-            codeElements.forEach(el => {
-                el.style.display = 'none';
-            });
-            
-            // 黒背景の要素を白に変更
-            const blackElements = document.querySelectorAll('[style*="background: black"], [style*="background-color: black"], [style*="background: rgb(0"], [style*="background-color: rgb(0"]');
-            blackElements.forEach(el => {
-                el.style.backgroundColor = 'white';
-                el.style.color = 'black';
-            });
         });
     </script>
     """, unsafe_allow_html=True)
@@ -654,10 +519,7 @@ def parse_json_response(text):
         return json.loads(json_str)
     except json.JSONDecodeError:
         st.error("AIの応答をJSONとして解析できませんでした。")
-        # 印刷時に非表示になるようにコンテナでラップ
-        with st.container():
-            st.info("AIからの生の応答:")
-            st.code(text, language="text")
+        st.info("AIからの生の応答:"); st.code(text, language="text")
         return None
 
 # ----------------------------------------------------------------------
@@ -687,13 +549,10 @@ def optimize_image_for_display(file_obj, max_width=800):
         file_obj.seek(0)
         return base64.b64encode(file_obj.read()).decode()
 
-def create_photo_row_html(index, item, img_base64=None, is_last=False):
+def create_photo_row_html(index, item, img_base64=None):
     """写真と内容を横並びで表示するHTML"""
     file_name = html.escape(str(item.get('file_name', '')))
     findings = item.get("findings", [])
-    
-    # 最後の要素の場合、特別なクラスを追加
-    row_class = "photo-row photo-row-last" if is_last else "photo-row"
     
     # 写真部分（遅延読み込み対応）
     photo_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img" loading="lazy">' if img_base64 else '<div style="height: 150px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">画像なし</div>'
@@ -741,7 +600,7 @@ def create_photo_row_html(index, item, img_base64=None, is_last=False):
     
     # 全体のHTML
     return f'''
-    <div class="{row_class}">
+    <div class="photo-row">
         <div class="photo-container">
             {photo_html}
         </div>
@@ -756,9 +615,6 @@ def display_full_report(report_payload, files_dict):
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
     
-    # レポートコンテンツコンテナ（report-containerクラスを追加）
-    st.markdown('<div class="report-container">', unsafe_allow_html=True)
-    
     # ヘッダー
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
     st.title("🏠 現場分析レポート")
@@ -768,7 +624,7 @@ def display_full_report(report_payload, files_dict):
     with col2:
         st.markdown(f"**調査日:** {survey_date}")
     st.markdown('</div>', unsafe_allow_html=True)
-        
+    
     # サマリー
     st.header("📊 分析結果サマリー")
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
@@ -808,10 +664,7 @@ def display_full_report(report_payload, files_dict):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # 写真のHTMLを集める
-    photo_rows_html = []
-    
-    # 各写真を処理
+    # 各写真を横並びレイアウトで表示
     for i, item in enumerate(report_data):
         # 進捗状況を更新
         progress = (i + 1) / len(report_data)
@@ -824,26 +677,13 @@ def display_full_report(report_payload, files_dict):
             # 画像を最適化
             img_base64 = optimize_image_for_display(file_obj)
         
-        # 最後の要素かどうか判定
-        is_last = (i == len(report_data) - 1)
-        
-        # 横並びの写真行のHTMLを作成
-        photo_row_html = create_photo_row_html(i + 1, item, img_base64, is_last)
-        photo_rows_html.append(photo_row_html)
+        # 横並びの写真行を表示
+        photo_row_html = create_photo_row_html(i + 1, item, img_base64)
+        st.markdown(photo_row_html, unsafe_allow_html=True)
     
     # プログレスバーを削除
     progress_bar.empty()
     status_text.empty()
-    
-    # すべての写真を一度に表示
-    all_photos_html = ''.join(photo_rows_html)
-    st.markdown(f'<div class="report-content-wrapper">{all_photos_html}</div>', unsafe_allow_html=True)
-    
-    # レポートの終端マーカー
-    st.markdown('<div class="report-content-end"></div>', unsafe_allow_html=True)
-    
-    # レポートコンテナを閉じる
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -856,9 +696,6 @@ def main():
 
     # --- 状態1: レポートが生成済み ---
     if st.session_state.report_payload is not None:
-        # レポート表示モードのマーカー
-        st.markdown('<div class="report-mode-marker" style="display:none"></div>', unsafe_allow_html=True)
-        
         st.success("✅ レポートの作成が完了しました！")
         
         # 印刷ガイダンス（目立つように表示）
