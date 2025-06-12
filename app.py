@@ -37,7 +37,7 @@ def inject_custom_css():
         .priority-high { background-color: #DC2626; }
         .priority-medium { background-color: #F59E0B; }
         .priority-low { background-color: #3B82F6; }
-        .no-print { /* This class will not be printed */ }
+        .no-print { /* このクラスを持つ要素は印刷しない */ }
         @media print {
             .no-print { display: none !important; }
             .stApp > header, .stApp > footer, .stToolbar, #stDecoration { display: none !important; }
@@ -153,7 +153,7 @@ def display_full_report(report_payload, files_dict=None):
             if has_image:
                 st.image(files_dict[item['file_name']], use_container_width=True)
             else:
-                st.empty() # 画像がない場合はスペースを空ける
+                st.empty()
         
         with col2:
             findings = item.get("findings", [])
@@ -182,15 +182,24 @@ def main():
             st.success("レポート表示中（共有モード）")
             st.info("このページのURLを他者に共有できます。ブラウザの印刷機能（Ctrl+P）でPDF化してください。")
             if st.button("新しいレポートを作成する", key="new_from_shared"):
+                st.session_state.clear()
                 st.query_params.clear()
             st.markdown('</div>', unsafe_allow_html=True)
-            display_full_report(report_payload) # 共有先では画像なしで表示
+            display_full_report(report_payload)
         else:
             st.error("レポートのURLが無効です。")
             if st.button("ホームに戻る"): st.query_params.clear()
         return
 
+    # --- レポート作成画面 ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
+    if 'processing' not in st.session_state:
+        st.session_state.processing = False
+
+    # レポート作成中は何もしない
+    if st.session_state.processing:
+        return
+
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
 
@@ -203,12 +212,28 @@ def main():
         survey_date = st.date_input("調査日", date.today())
         
         st.subheader("2. 写真アップロード")
-        uploaded_files = st.file_uploader("分析したい写真を選択", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+        uploaded_files = st.file_uploader(
+            "分析したい写真を選択",
+            type=["png", "jpg", "jpeg"],
+            accept_multiple_files=True,
+            key="file_uploader"
+        )
         
-        # ★アップロードされるまでボタンを非活性化
-        submitted = st.form_submit_button("レポートを作成する", type="primary", use_container_width=True, disabled=not uploaded_files)
+        # ★アップロード状況の表示
+        if uploaded_files:
+            st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+        else:
+            st.info("ここに写真をドラッグ＆ドロップするか、「Browse files」ボタンを押して選択してください。")
+        
+        submitted = st.form_submit_button(
+            "レポートを作成する",
+            type="primary",
+            use_container_width=True,
+            disabled=not uploaded_files # ★ファイルがなければ非活性
+        )
 
     if submitted:
+        st.session_state.processing = True
         total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
         progress_bar = st.progress(0, text="AI分析の準備をしています...")
         
@@ -233,32 +258,27 @@ def main():
             
             progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
             
-            # 元のユーザー用に画像辞書を保持
-            files_dict = {f.name: f for f in uploaded_files}
-            
-            # URL共有用のペイロード（画像データなし）
+            st.session_state.files_dict = {f.name: f for f in uploaded_files}
             report_payload = {
                 "title": report_title,
                 "date": survey_date.strftime('%Y年%m月%d日'),
-                "report_data": final_report_data # テキスト情報のみ
+                "report_data": final_report_data
             }
             
-            # 結果表示とURL設定
             st.session_state.report_payload = report_payload
-            st.session_state.files_dict = files_dict
             st.query_params["report"] = encode_report_data(report_payload)
-            st.success("✅ レポートの作成が完了しました！")
             
         except Exception as e:
             st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
-            return
-        
-        # 最後にプログレスバーを消す
-        progress_bar.empty()
+        finally:
+            st.session_state.processing = False
+            progress_bar.empty()
+            st.rerun() # 結果表示のために再描画
 
     # セッションにレポートデータがあれば表示
     if 'report_payload' in st.session_state:
         st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
+        st.info("ℹ️ このページのURLを共有すると、テキストのみのレポートが相手に表示されます。")
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         
     st.markdown('</div>', unsafe_allow_html=True)
