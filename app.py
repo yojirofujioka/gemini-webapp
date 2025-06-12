@@ -15,8 +15,8 @@ import base64
 # 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
-    page_title="AIリフォーム箇所分析レポート",
-    page_icon="🏠",
+    page_title="リフォーム箇所分析レポート",
+    page_icon="▪",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
 )
@@ -58,6 +58,8 @@ def inject_custom_css():
         h1, h2, h3, h4, h5, h6,
         .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
             color: #1f2937 !important;
+            font-weight: 300 !important;
+            letter-spacing: -0.02em !important;
         }
         
         /* 段落とスパン */
@@ -74,8 +76,11 @@ def inject_custom_css():
         .stDateInput label,
         .stFileUploader label {
             color: #1f2937 !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
             opacity: 1 !important;
+            font-size: 0.875rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
         }
         
         /* テキスト入力フィールド */
@@ -83,7 +88,15 @@ def inject_custom_css():
         .stTextInput input {
             background-color: #ffffff !important;
             color: #1f2937 !important;
-            border: 1px solid #d1d5db !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            transition: border-color 0.2s !important;
+        }
+        
+        [data-testid="stTextInput"] input:focus,
+        .stTextInput input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 1px #3b82f6 !important;
         }
         
         /* 日付入力フィールド */
@@ -91,57 +104,79 @@ def inject_custom_css():
         .stDateInput input {
             background-color: #ffffff !important;
             color: #1f2937 !important;
-            border: 1px solid #d1d5db !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
         }
         
         /* ファイルアップローダー */
         [data-testid="stFileUploadDropzone"],
         .stFileUploader > div {
+            background-color: #fafafa !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            transition: all 0.2s !important;
+        }
+        
+        [data-testid="stFileUploadDropzone"]:hover {
+            border-color: #3b82f6 !important;
             background-color: #f9fafb !important;
-            border: 2px dashed #d1d5db !important;
         }
         
         [data-testid="stFileUploadDropzone"] svg {
-            color: #6b7280 !important;
+            color: #9ca3af !important;
         }
         
         [data-testid="stFileUploadDropzone"] p,
         [data-testid="stFileUploadDropzone"] span {
-            color: #4b5563 !important;
+            color: #6b7280 !important;
+            font-size: 0.875rem !important;
         }
         
         /* ========== ボタンのスタイル ========== */
         .stButton > button {
-            background-color: #3b82f6 !important;
+            background-color: #1f2937 !important;
             color: #ffffff !important;
             border: none !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
+            border-radius: 0 !important;
+            padding: 0.75rem 2rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            font-size: 0.875rem !important;
+            transition: all 0.2s !important;
         }
         
         .stButton > button:hover:not(:disabled) {
-            background-color: #2563eb !important;
+            background-color: #111827 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
         }
         
         .stButton > button:disabled {
-            background-color: #9ca3af !important;
+            background-color: #e5e7eb !important;
+            color: #9ca3af !important;
             opacity: 0.6 !important;
         }
         
         /* ========== アラートメッセージ ========== */
         /* 成功メッセージ */
         .stSuccess, [data-testid="stAlert"][data-baseweb="notification"][kind="success"] {
-            background-color: #d1fae5 !important;
-            color: #065f46 !important;
+            background-color: #f0fdf4 !important;
+            color: #14532d !important;
+            border-left: 3px solid #22c55e !important;
+            border-radius: 0 !important;
         }
         
         .stSuccess svg {
-            color: #10b981 !important;
+            color: #22c55e !important;
         }
         
         /* 警告メッセージ */
         .stWarning, [data-testid="stAlert"][data-baseweb="notification"][kind="warning"] {
-            background-color: #fef3c7 !important;
-            color: #92400e !important;
+            background-color: #fffbeb !important;
+            color: #581c0c !important;
+            border-left: 3px solid #f59e0b !important;
+            border-radius: 0 !important;
         }
         
         .stWarning svg {
@@ -150,8 +185,10 @@ def inject_custom_css():
         
         /* 情報メッセージ */
         .stInfo, [data-testid="stAlert"][data-baseweb="notification"][kind="info"] {
-            background-color: #dbeafe !important;
+            background-color: #eff6ff !important;
             color: #1e3a8a !important;
+            border-left: 3px solid #3b82f6 !important;
+            border-radius: 0 !important;
         }
         
         .stInfo svg {
@@ -160,53 +197,70 @@ def inject_custom_css():
         
         /* ========== プログレスバー ========== */
         .stProgress > div > div {
-            background-color: #e5e7eb !important;
+            background-color: #f3f4f6 !important;
+            border-radius: 0 !important;
         }
         
         .stProgress > div > div > div {
-            background-color: #3b82f6 !important;
+            background-color: #1f2937 !important;
+            border-radius: 0 !important;
         }
         
         /* ========== カスタムスタイル ========== */
         /* 基本スタイル */
         .report-header {
             text-align: center;
-            padding: 2rem 0;
-            border-bottom: 3px solid #1F2937;
-            margin-bottom: 2rem;
+            padding: 3rem 0 2rem;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 3rem;
             background: #ffffff;
+        }
+        
+        .report-header h1 {
+            font-size: 2.5rem !important;
+            font-weight: 200 !important;
+            letter-spacing: -0.03em !important;
+            margin-bottom: 0.5rem !important;
         }
         
         /* 印刷ガイダンス */
         .print-guidance {
-            background: #fef3c7;
-            border: 2px solid #f59e0b;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 2rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0;
+            padding: 1.5rem;
+            margin-bottom: 3rem;
             text-align: center;
         }
         
         .print-guidance strong {
-            color: #d97706;
-            font-size: 1.1rem;
+            color: #1f2937;
+            font-size: 1rem;
+            font-weight: 500;
         }
         
         /* サマリーカード */
         .metric-card {
             background: #ffffff;
-            border: 2px solid #d1d5db;
-            padding: 1.5rem;
-            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            padding: 2rem;
+            border-radius: 0;
             text-align: center;
             height: 100%;
+            transition: all 0.2s;
+        }
+        
+        .metric-card:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
         
         .metric-value {
-            font-size: 3rem;
-            font-weight: 800;
+            font-size: 3.5rem;
+            font-weight: 200;
             margin-bottom: 0.5rem;
             color: #1f2937;
+            letter-spacing: -0.03em;
         }
         
         .metric-value-high {
@@ -214,20 +268,22 @@ def inject_custom_css():
         }
         
         .metric-label {
-            font-size: 1rem;
-            color: #4b5563;
-            font-weight: 600;
+            font-size: 0.875rem;
+            color: #6b7280;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         
         /* 写真セクション（横並びレイアウト） */
         .photo-row {
             display: flex;
-            gap: 1.5rem;
+            gap: 2rem;
             margin-bottom: 2rem;
             background: #ffffff;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: 1.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0;
+            padding: 2rem;
             page-break-inside: avoid;
             break-inside: avoid;
         }
@@ -242,94 +298,118 @@ def inject_custom_css():
             height: auto;
             max-height: 225px;
             object-fit: contain;
-            border-radius: 8px;
-            border: 2px solid #d1d5db;
-            background: #f9fafb;
+            border-radius: 0;
+            border: 1px solid #e5e7eb;
+            background: #fafafa;
         }
         
         .content-container {
             flex: 1;
             min-width: 0;
-            padding-left: 1rem;
+            padding-left: 1.5rem;
         }
         
         .photo-title {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1rem;
+            font-weight: 500;
             color: #1f2937;
-            margin-bottom: 0.8rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         
         .photo-filename {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #9ca3af;
-            font-weight: normal;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: normal;
         }
         
         /* 指摘事項のスタイル */
         .finding-high {
-            background: #fee2e2;
+            background: #fef2f2;
             border-left: 3px solid #dc2626;
-            padding: 0.6rem;
-            margin-bottom: 0.6rem;
-            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0;
             color: #7f1d1d;
-            font-size: 0.85rem;
+            font-size: 0.875rem;
         }
         
         .finding-medium {
-            background: #fef3c7;
+            background: #fffbeb;
             border-left: 3px solid #f59e0b;
-            padding: 0.6rem;
-            margin-bottom: 0.6rem;
-            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0;
             color: #78350f;
-            font-size: 0.85rem;
+            font-size: 0.875rem;
         }
         
         .finding-low {
-            background: #dbeafe;
+            background: #eff6ff;
             border-left: 3px solid #3b82f6;
-            padding: 0.6rem;
-            margin-bottom: 0.6rem;
-            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 0;
             color: #1e3a8a;
-            font-size: 0.85rem;
+            font-size: 0.875rem;
         }
         
         .finding-location {
             font-weight: 600;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         
         .finding-details {
-            line-height: 1.4;
+            line-height: 1.6;
+            font-size: 0.875rem;
+        }
+        
+        .finding-details > div {
+            margin-bottom: 0.25rem;
         }
         
         .observation-box {
-            background: #d1fae5;
-            padding: 0.8rem;
-            border-radius: 8px;
-            color: #064e3b;
-            font-size: 0.85rem;
+            background: #f0fdf4;
+            padding: 1rem;
+            border-radius: 0;
+            color: #14532d;
+            font-size: 0.875rem;
+            border-left: 3px solid #22c55e;
         }
         
         .no-finding-box {
-            background: #d1fae5;
-            color: #047857;
-            padding: 0.8rem;
+            background: #f0fdf4;
+            color: #14532d;
+            padding: 1rem;
             text-align: center;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            border-radius: 0;
+            font-size: 0.875rem;
+            border: 1px solid #bbf7d0;
         }
         
         /* 編集エリアのスタイル */
         .edit-container {
-            background: #f9fafb;
-            padding: 1rem;
-            border-radius: 8px;
+            background: #fafafa;
+            padding: 1.5rem;
+            border-radius: 0;
             margin-bottom: 1rem;
             border: 1px solid #e5e7eb;
+        }
+        
+        /* Section headers */
+        h2 {
+            font-size: 1.5rem !important;
+            font-weight: 300 !important;
+            margin-bottom: 1.5rem !important;
+            margin-top: 2rem !important;
+            padding-bottom: 0.5rem !important;
+            border-bottom: 1px solid #e5e7eb !important;
         }
         
         /* ========== 印刷用スタイル ========== */
@@ -373,10 +453,21 @@ def inject_custom_css():
                 margin: 15mm;
             }
             
+            /* URLを非表示 */
+            @page {
+                @bottom-left {
+                    content: none !important;
+                }
+                @bottom-right {
+                    content: none !important;
+                }
+            }
+            
             /* タイトルとヘッダー */
             .report-header {
-                border-bottom: 2px solid #333 !important;
+                border-bottom: 1px solid #333 !important;
                 background: white !important;
+                page-break-after: avoid !important;
             }
             
             h1, h2, h3 {
@@ -435,28 +526,38 @@ def inject_custom_css():
                 background: #fee2e2 !important;
                 border-left: 3px solid #dc2626 !important;
                 color: #7f1d1d !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             
             .finding-medium {
                 background: #fef3c7 !important;
                 border-left: 3px solid #f59e0b !important;
                 color: #78350f !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             
             .finding-low {
                 background: #dbeafe !important;
                 border-left: 3px solid #3b82f6 !important;
                 color: #1e3a8a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             
             .observation-box {
                 background: #d1fae5 !important;
                 color: #064e3b !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             
             .no-finding-box {
                 background: #d1fae5 !important;
                 color: #047857 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             
             .finding-details {
@@ -507,7 +608,7 @@ def initialize_vertexai():
         vertexai.init(project=gcp_secrets["project_id"], location="asia-northeast1", credentials=credentials)
         return GenerativeModel("gemini-1.5-pro")
     except Exception as e:
-        st.error(f"GCPの認証またはVertex AIの初期化に失敗しました: {e}")
+        st.error(f"GCP認証の初期化に失敗しました: {e}")
         return None
 
 # ----------------------------------------------------------------------
@@ -547,8 +648,8 @@ def parse_json_response(text):
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        st.error("AIの応答をJSONとして解析できませんでした。")
-        st.info("AIからの生の応答:"); st.code(text, language="text")
+        st.error("応答をJSONとして解析できませんでした。")
+        st.info("生の応答:"); st.code(text, language="text")
         return None
 
 # ----------------------------------------------------------------------
@@ -598,11 +699,7 @@ def create_photo_row_html(index, item, img_base64=None):
                 '低': 'finding-low'
             }.get(priority, 'finding-medium')
             
-            priority_emoji = {
-                '高': '🔴',
-                '中': '🟡', 
-                '低': '🔵'
-            }.get(priority, '🟡')
+            priority_emoji = ''  # 絵文字を使用しない
             
             location = html.escape(str(finding.get('location', 'N/A')))
             current_state = html.escape(str(finding.get('current_state', 'N/A')))
@@ -610,7 +707,7 @@ def create_photo_row_html(index, item, img_base64=None):
             
             content_html += f'''
             <div class="{priority_class}">
-                <div class="finding-location">{priority_emoji} {location} (緊急度: {priority})</div>
+                <div class="finding-location">{location} [緊急度: {priority}]</div>
                 <div class="finding-details">
                     <div>現状: {current_state}</div>
                     <div>提案: {suggested_work}</div>
@@ -623,9 +720,9 @@ def create_photo_row_html(index, item, img_base64=None):
             content_html += '</div></div>'
     elif item.get("observation"):
         observation = html.escape(str(item.get('observation', '')))
-        content_html += f'<div class="observation-box">📋 所見: {observation}</div>'
+        content_html += f'<div class="observation-box">所見: {observation}</div>'
     else:
-        content_html += '<div class="no-finding-box">✅ 修繕必要箇所なし</div>'
+        content_html += '<div class="no-finding-box">修繕必要箇所なし</div>'
     
     # 全体のHTML
     return f'''
@@ -651,7 +748,7 @@ def display_editable_report(report_payload, files_dict):
     
     # ヘッダー
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
-    st.title("🏠 現場分析レポート")
+    st.title("現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"**物件名:** {report_title or '（未設定）'}")
@@ -664,7 +761,7 @@ def display_editable_report(report_payload, files_dict):
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
     # サマリー表示
-    st.header("📊 分析結果サマリー")
+    st.header("分析結果サマリー")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f'''
@@ -693,7 +790,7 @@ def display_editable_report(report_payload, files_dict):
     st.markdown("---")
     
     # 詳細分析結果（編集可能）
-    st.header("📋 詳細分析結果")
+    st.header("詳細分析結果")
     
     # 各写真を編集可能な形で表示
     for i, item in enumerate(report_data):
@@ -777,7 +874,7 @@ def display_editable_report(report_payload, files_dict):
                             )
                             
                             # 削除ボタン
-                            if st.button(f"🗑️ この指摘事項を削除", key=f"delete_{i}_{j}"):
+                            if st.button(f"この指摘事項を削除", key=f"delete_{i}_{j}"):
                                 findings_to_delete.append(j)
                             
                             # データ更新（リアルタイムで更新しない）
@@ -793,7 +890,7 @@ def display_editable_report(report_payload, files_dict):
                         st.rerun()
                     
                     # 新規指摘事項追加ボタン
-                    if st.button(f"➕ 指摘事項を追加", key=f"add_finding_{i}"):
+                    if st.button(f"指摘事項を追加", key=f"add_finding_{i}"):
                         if 'findings' not in st.session_state.edited_report['report_data'][i]:
                             st.session_state.edited_report['report_data'][i]['findings'] = []
                         st.session_state.edited_report['report_data'][i]['findings'].append({
@@ -816,7 +913,7 @@ def display_editable_report(report_payload, files_dict):
                     st.session_state.edited_report['report_data'][i]['observation'] = new_observation
                     
                     # 指摘事項に変更ボタン
-                    if st.button(f"🔄 指摘事項に変更", key=f"convert_{i}"):
+                    if st.button(f"指摘事項に変更", key=f"convert_{i}"):
                         st.session_state.edited_report['report_data'][i]['observation'] = ''
                         st.session_state.edited_report['report_data'][i]['findings'] = [{
                             'location': '',
@@ -827,8 +924,8 @@ def display_editable_report(report_payload, files_dict):
                         }]
                         st.rerun()
                 else:
-                    st.info("✅ 修繕必要箇所なし")
-                    if st.button(f"➕ 指摘事項を追加", key=f"add_new_{i}"):
+                    st.info("修繕必要箇所なし")
+                    if st.button(f"指摘事項を追加", key=f"add_new_{i}"):
                         if 'findings' not in st.session_state.edited_report['report_data'][i]:
                             st.session_state.edited_report['report_data'][i]['findings'] = []
                         st.session_state.edited_report['report_data'][i]['findings'].append({
@@ -850,7 +947,7 @@ def display_full_report(report_payload, files_dict):
     
     # ヘッダー
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
-    st.title("🏠 現場分析レポート")
+    st.title("現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"**物件名:** {report_title or '（未設定）'}")
@@ -859,7 +956,7 @@ def display_full_report(report_payload, files_dict):
     st.markdown('</div>', unsafe_allow_html=True)
     
     # サマリー
-    st.header("📊 分析結果サマリー")
+    st.header("分析結果サマリー")
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
@@ -891,7 +988,7 @@ def display_full_report(report_payload, files_dict):
     st.markdown("---")
     
     # 詳細分析結果
-    st.header("📋 詳細分析結果")
+    st.header("詳細分析結果")
     
     # プログレスバーで画像処理状況を表示
     progress_bar = st.progress(0)
@@ -929,32 +1026,32 @@ def main():
 
     # --- 状態1: レポートが生成済み ---
     if st.session_state.report_payload is not None:
-        st.success("✅ レポートの作成が完了しました！")
+        st.success("レポートの作成が完了しました")
         
         # 編集モードの切り替えボタン
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             if st.session_state.edit_mode:
-                if st.button("💾 編集を保存して表示モードへ", key="save_edit", use_container_width=True):
+                if st.button("編集を保存して表示モードへ", key="save_edit", use_container_width=True):
                     # 編集内容を保存
                     st.session_state.report_payload = json.loads(json.dumps(st.session_state.edited_report))
                     st.session_state.edit_mode = False
                     st.rerun()
             else:
-                if st.button("✏️ レポートを編集", key="start_edit", use_container_width=True):
+                if st.button("レポートを編集", key="start_edit", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edited_report = None  # 編集データをリセット
                     st.rerun()
         
         with col2:
             if st.session_state.edit_mode:
-                if st.button("❌ 編集をキャンセル", key="cancel_edit", use_container_width=True):
+                if st.button("編集をキャンセル", key="cancel_edit", use_container_width=True):
                     st.session_state.edit_mode = False
                     st.session_state.edited_report = None
                     st.rerun()
         
         with col3:
-            if st.button("🔄 新しいレポートを作成", key="new_from_result", use_container_width=True):
+            if st.button("新しいレポートを作成", key="new_from_result", use_container_width=True):
                 st.session_state.clear()
                 st.rerun()
         
@@ -962,7 +1059,7 @@ def main():
         if not st.session_state.edit_mode:
             st.markdown("""
                 <div class="print-guidance">
-                    <strong>📄 PDFとして保存する方法：</strong><br>
+                    <strong>PDFとして保存する方法</strong><br>
                     画面右上の「⋮」（3点メニュー）をクリックして、<br>
                     <strong style="font-size: 1.3rem;">「Print」</strong> を選択してください
                 </div>
@@ -976,16 +1073,16 @@ def main():
         return
 
     # --- 状態2: 初期画面（入力フォーム） ---
-    st.title("📷 AIリフォーム箇所分析＆報告書作成")
-    st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
+    st.title("現場写真分析・報告書作成システム")
+    st.markdown("現場写真をアップロードすると、修繕提案レポートを自動作成します。")
 
     if not model:
-        st.warning("AIモデルを読み込めませんでした。")
+        st.warning("モデルを読み込めませんでした。")
         st.stop()
 
     # 処理中の場合、警告メッセージを表示
     if st.session_state.processing:
-        st.warning("⏳ 現在処理中です。しばらくお待ちください...")
+        st.warning("現在処理中です。しばらくお待ちください...")
         
     report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事", disabled=st.session_state.processing)
     survey_date = st.date_input("調査日", date.today(), disabled=st.session_state.processing)
@@ -999,7 +1096,7 @@ def main():
     )
     
     if uploaded_files and not st.session_state.processing:
-        st.success(f"✅ {len(uploaded_files)}件の写真がアップロードされました。")
+        st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
     
     # ボタンの作成（処理中は無効化）
     button_label = "処理中..." if st.session_state.processing else "レポートを作成する"
@@ -1023,13 +1120,13 @@ def main():
         ui_placeholder = st.empty()
         with ui_placeholder.container():
             total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
-            progress_bar = st.progress(0, text="AI分析の準備をしています...")
+            progress_bar = st.progress(0, text="分析の準備をしています...")
             
             final_report_data = []
             try:
                 for i in range(0, len(uploaded_files), BATCH_SIZE):
                     current_batch_num = (i // BATCH_SIZE) + 1
-                    progress_text = f"AIが写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+                    progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
                     progress_bar.progress(i / len(uploaded_files), text=progress_text)
 
                     file_batch = uploaded_files[i:i + BATCH_SIZE]
@@ -1042,9 +1139,9 @@ def main():
                     if batch_report_data:
                         final_report_data.extend(batch_report_data)
                     else:
-                        st.error(f"バッチ {current_batch_num} の分析中にエラーが発生しました。")
+                        st.error(f"バッチ {current_batch_num} の分析でエラーが発生しました。")
                 
-                progress_bar.progress(1.0, text="分析完了！レポートを生成中です...")
+                progress_bar.progress(1.0, text="分析完了")
                 
                 # レポートの保存
                 st.session_state.files_dict = {f.name: f for f in uploaded_files}
@@ -1055,7 +1152,7 @@ def main():
                 }
                 
             except Exception as e:
-                st.error(f"分析処理全体で予期せぬエラーが発生しました: {e}")
+                st.error(f"分析処理でエラーが発生しました: {e}")
                 st.session_state.processing = False
                 st.session_state.report_payload = None
             finally:
