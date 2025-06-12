@@ -37,7 +37,6 @@ def inject_custom_css():
             page-break-inside: avoid !important;
         }
         .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
-        .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
         
         /* ★緊急度バッジのスタイル */
         .priority-badge { display: inline-block; padding: 0.3em 0.9em; border-radius: 15px; font-weight: 600; color: white; font-size: 0.9em; margin-left: 10px; }
@@ -142,17 +141,17 @@ def display_full_report(report_payload, files_dict):
         
         st.markdown("<h2>📋 詳細分析結果</h2>", unsafe_allow_html=True)
         for i, item in enumerate(report_data):
+            # ★各セクションをdivで囲み、改ページ禁止を適用
             st.markdown('<div class="photo-section">', unsafe_allow_html=True)
             col1, col2 = st.columns([2, 3])
             
-            # 写真を左のカラムに表示
             with col1:
                 if files_dict and item.get('file_name') in files_dict:
                     st.image(files_dict[item['file_name']], use_container_width=True)
             
-            # タイトルとテキストを右のカラムに表示
             with col2:
-                st.markdown(f"<h3>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
+                # ★タイトルを右側に表示
+                st.markdown(f"<h3 style='font-size: 1.2em; font-weight: 600;'>{i + 1}. 写真ファイル: {item.get('file_name', '')}</h3>", unsafe_allow_html=True)
                 findings = item.get("findings", [])
                 if findings:
                     for find in findings:
@@ -172,7 +171,9 @@ def main():
     inject_custom_css()
     model = initialize_vertexai()
 
+    # --- 状態1: レポートが生成済み ---
     if 'report_payload' in st.session_state:
+        # 印刷時に非表示にするためのUIコンテナ
         with st.container():
             st.success("✅ レポートの作成が完了しました！")
             st.info("💡 この画面をブラウザの印刷機能（Ctrl+P または Cmd+P）でPDF化または印刷してください。")
@@ -183,6 +184,7 @@ def main():
         display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
+    # --- 状態2: 初期画面（入力フォーム） ---
     with st.container():
         st.title("📷 AIリフォーム箇所分析＆報告書作成")
         st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
