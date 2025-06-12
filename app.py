@@ -87,31 +87,19 @@ def get_finding_html(finding):
         html += f"- <b>備考:</b> {finding.get('notes', 'N/A')}"
     return html
 
-def display_print_preview(report_payload, files_dict):
-    """印刷専用のプレビューページを純粋なHTMLで生成して表示する"""
-    st.markdown("""
-    <style>
-        #root > div:nth-child(1) > div.withScreencast > div > div > header, 
-        #root > div:nth-child(1) > div.withScreencast > div > div > footer,
-        #stDecoration { display: none !important; }
-        .main .block-container { padding: 1rem !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    if st.button("⬅️ 通常表示に戻る"):
-        st.session_state.print_mode = False
-        st.rerun()
-
-    st.info("この画面でブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-    
+def generate_printable_html(report_payload, files_dict):
+    """印刷専用の完全なHTMLドキュメントを生成する"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
 
-    html = """
+    print_css = """
     <style>
-        body { font-family: sans-serif; background-color: #fff !important; }
-        .print-header { text-align: center; margin-bottom: 20px; }
+        body { font-family: sans-serif; }
+        .print-header { text-align: center; margin-bottom: 20px; page-break-after: avoid; }
+        h1 { font-size: 24px; }
+        p { font-size: 12px; }
+        hr { margin: 15px 0; }
         .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
         .print-item { border: 1px solid #ccc; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; page-break-inside: avoid; height: 320px; }
         .print-item h3 { font-size: 11px; margin: 0 0 10px 0; font-weight: bold; word-break: break-all; }
@@ -122,7 +110,9 @@ def display_print_preview(report_payload, files_dict):
         .priority-high { background-color: #DC2626; } .priority-medium { background-color: #F59E0B; } .priority-low { background-color: #3B82F6; }
     </style>
     """
-    html += f"<div class='print-header'><h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p></div>"
+    
+    html = f"<!DOCTYPE html><html><head><title>現場分析レポート</title>{print_css}</head><body>"
+    html += f"<div class='print-header'><h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p></div><hr>"
     
     for i in range(0, len(report_data), 3):
         html += '<div class="print-grid">'
@@ -145,30 +135,56 @@ def display_print_preview(report_payload, files_dict):
                 html += f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>{image_html}<div class="text-box">{text_html}</div></div>'
             else: html += "<div></div>"
         html += '</div>'
-        
-    st.markdown(html, unsafe_allow_html=True)
+    html += '</body></html>'
+    return html
 
 def display_main_report(report_payload, files_dict):
-    """画面表示用の通常レポートを表示する"""
+    """画面表示用の通常レポートと印刷ボタンを表示する"""
     st.success("✅ レポートの作成が完了しました！")
-    if st.button("🖨️ 印刷プレビューを表示"):
-        st.session_state.print_mode = True
-        st.rerun()
+    
+    # 印刷用HTMLを生成し、JavaScriptボタンに埋め込む
+    printable_html = generate_printable_html(report_payload, files_dict)
+    html_for_js = json.dumps(printable_html) # HTMLをJavaScriptで安全に扱えるようにJSON文字列に変換
+    
+    st.markdown(f"""
+        <button id="print-button">🖨️ 印刷用PDFを生成</button>
+        <script>
+            document.getElementById('print-button').onclick = function() {{
+                const htmlContent = {html_for_js};
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                printWindow.onload = function() {{ // コンテンツの読み込みを待つ
+                    printWindow.print();
+                    printWindow.close();
+                }};
+            }};
+        </script>
+        <style>
+            #print-button {{
+                padding: 10px 20px; font-size: 16px; font-weight: bold;
+                background-color: #0068c9; color: white; border: none;
+                border-radius: 8px; cursor: pointer; margin: 10px 0;
+            }}
+            #print-button:hover {{ background-color: #0058ab; }}
+        </style>
+    """, unsafe_allow_html=True)
+    
     if st.button("新しいレポートを作成する", key="new_from_result"):
         st.session_state.clear()
         st.rerun()
     
-    st.markdown("""<style>
-        .report-container { background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }
-        .report-container h1 { color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }
-        .report-container h2 { color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }
-        .report-container hr { border: 1px solid #e0e0e0; margin: 2.5em 0; }
-        .photo-section { border-top: 1px solid #e0e0e0; padding-top: 2rem; margin-top: 2rem; }
-        .report-container .photo-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
-        .photo-section h3 { color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }
-    </style>""", unsafe_allow_html=True)
-    
+    # 画面表示用のレポート
     with st.container():
+        st.markdown("""<style>
+            .report-container {{ background-color: #ffffff; color: #333333; border-radius: 8px; border: 1px solid #e0e0e0; padding: 2.5em 3.5em; box-shadow: 0 8px 30px rgba(0,0,0,0.05); margin: 2em 0; }}
+            .report-container h1 {{ color: #1F2937; font-size: 2.5em; border-bottom: 3px solid #D1D5DB; padding-bottom: 0.4em; }}
+            .report-container h2 {{ color: #1F2937; font-size: 1.8em; border-bottom: 2px solid #E5E7EB; padding-bottom: 0.3em; margin-top: 2em; }}
+            .report-container hr {{ border: 1px solid #e0e0e0; margin: 2.5em 0; }}
+            .photo-section {{ border-top: 1px solid #e0e0e0; padding-top: 2rem; margin-top: 2rem; }}
+            .report-container .photo-section:first-of-type {{ border-top: none; padding-top: 0; margin-top: 0; }}
+            .photo-section h3 {{ color: #374151; font-size: 1.4em; margin: 0 0 1em 0; font-weight: 600; }}
+        </style>""", unsafe_allow_html=True)
         st.markdown('<div class="report-container">', unsafe_allow_html=True)
         report_data = report_payload.get('report_data', [])
         report_title = report_payload.get('title', '')
@@ -208,14 +224,7 @@ def display_main_report(report_payload, files_dict):
 def main():
     model = initialize_vertexai()
 
-    if 'print_mode' not in st.session_state: st.session_state.print_mode = False
-    if 'report_payload' not in st.session_state: st.session_state.report_payload = None
-
-    if st.session_state.print_mode:
-        display_print_preview(st.session_state.report_payload, st.session_state.files_dict)
-        return
-
-    if st.session_state.report_payload:
+    if 'report_payload' in st.session_state:
         display_main_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
