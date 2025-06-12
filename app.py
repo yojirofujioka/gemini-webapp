@@ -15,7 +15,7 @@ import base64
 # 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
-    page_title="AIリフォーム分析レポート",
+    page_title="AIリフォーム箇所分析レポート",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
@@ -29,6 +29,10 @@ if 'report_payload' not in st.session_state:
     st.session_state.report_payload = None
 if 'files_dict' not in st.session_state:
     st.session_state.files_dict = None
+if 'edit_mode' not in st.session_state:
+    st.session_state.edit_mode = False
+if 'edited_report' not in st.session_state:
+    st.session_state.edited_report = None
 
 # ----------------------------------------------------------------------
 # 2. デザインとGCP初期化
@@ -313,6 +317,15 @@ def inject_custom_css():
             font-size: 0.85rem;
         }
         
+        /* 編集エリアのスタイル */
+        .edit-container {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #e5e7eb;
+        }
+        
         /* ========== 印刷用スタイル ========== */
         @media print {
             /* 背景を白に設定 */
@@ -334,7 +347,11 @@ def inject_custom_css():
             .stCaption,
             .st-emotion-cache-1wrcr25,
             .st-emotion-cache-12w0qpk,
-            footer {
+            footer,
+            .edit-container,
+            .stTextInput,
+            .stTextArea,
+            .stSelectbox {
                 display: none !important;
             }
             
@@ -550,7 +567,7 @@ def optimize_image_for_display(file_obj, max_width=800):
         return base64.b64encode(file_obj.read()).decode()
 
 def create_photo_row_html(index, item, img_base64=None):
-    """写真と内容を横並びで表示するHTML"""
+    """写真と内容を横並びで表示するHTML（読み取り専用）"""
     file_name = html.escape(str(item.get('file_name', '')))
     findings = item.get("findings", [])
     
@@ -610,7 +627,188 @@ def create_photo_row_html(index, item, img_base64=None):
     </div>
     '''
 
+def display_editable_report(report_payload, files_dict):
+    """編集可能なレポート表示"""
+    # 編集用データの初期化
+    if st.session_state.edited_report is None:
+        st.session_state.edited_report = json.loads(json.dumps(report_payload))
+    
+    report_data = st.session_state.edited_report.get('report_data', [])
+    report_title = st.session_state.edited_report.get('title', '')
+    survey_date = st.session_state.edited_report.get('date', '')
+    
+    # ヘッダー
+    st.markdown('<div class="report-header">', unsafe_allow_html=True)
+    st.title("🏠 現場分析レポート")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"**物件名:** {report_title or '（未設定）'}")
+    with col2:
+        st.markdown(f"**調査日:** {survey_date}")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # サマリー計算
+    total_findings = sum(len(item.get("findings", [])) for item in report_data)
+    high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
+    
+    # サマリー表示
+    st.header("📊 分析結果サマリー")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{len(report_data)}</div>
+                <div class="metric-label">分析写真枚数</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{total_findings}</div>
+                <div class="metric-label">総指摘件数</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value metric-value-high">{high_priority_count}</div>
+                <div class="metric-label">緊急度「高」</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 詳細分析結果（編集可能）
+    st.header("📋 詳細分析結果")
+    
+    # 各写真を編集可能な形で表示
+    for i, item in enumerate(report_data):
+        with st.container():
+            # 写真と基本情報の表示
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                # 写真表示
+                if files_dict and item.get('file_name') in files_dict:
+                    file_obj = files_dict[item['file_name']]
+                    img_base64 = optimize_image_for_display(file_obj)
+                    st.markdown(f'<img src="data:image/jpeg;base64,{img_base64}" class="photo-img">', unsafe_allow_html=True)
+                else:
+                    st.info("画像なし")
+                st.caption(f"{i + 1}. {item.get('file_name', '')}")
+            
+            with col2:
+                findings = item.get("findings", [])
+                
+                if findings:
+                    # 指摘事項の編集
+                    for j, finding in enumerate(findings):
+                        with st.expander(f"指摘事項 {j + 1}: {finding.get('location', '')} ({finding.get('priority', '中')})", expanded=True):
+                            # 場所
+                            new_location = st.text_input(
+                                "場所",
+                                value=finding.get('location', ''),
+                                key=f"location_{i}_{j}"
+                            )
+                            
+                            # 現状
+                            new_current_state = st.text_area(
+                                "現状",
+                                value=finding.get('current_state', ''),
+                                key=f"current_{i}_{j}",
+                                height=80
+                            )
+                            
+                            # 提案
+                            new_suggested_work = st.text_area(
+                                "提案する工事内容",
+                                value=finding.get('suggested_work', ''),
+                                key=f"suggest_{i}_{j}",
+                                height=80
+                            )
+                            
+                            # 緊急度
+                            priority_options = ['高', '中', '低']
+                            current_priority_index = priority_options.index(finding.get('priority', '中'))
+                            new_priority = st.selectbox(
+                                "緊急度",
+                                options=priority_options,
+                                index=current_priority_index,
+                                key=f"priority_{i}_{j}"
+                            )
+                            
+                            # 備考
+                            new_notes = st.text_area(
+                                "備考",
+                                value=finding.get('notes', ''),
+                                key=f"notes_{i}_{j}",
+                                height=60
+                            )
+                            
+                            # 削除ボタン
+                            if st.button(f"🗑️ この指摘事項を削除", key=f"delete_{i}_{j}"):
+                                st.session_state.edited_report['report_data'][i]['findings'].pop(j)
+                                st.rerun()
+                            
+                            # データ更新
+                            st.session_state.edited_report['report_data'][i]['findings'][j] = {
+                                'location': new_location,
+                                'current_state': new_current_state,
+                                'suggested_work': new_suggested_work,
+                                'priority': new_priority,
+                                'notes': new_notes
+                            }
+                    
+                    # 新規指摘事項追加ボタン
+                    if st.button(f"➕ 指摘事項を追加", key=f"add_finding_{i}"):
+                        st.session_state.edited_report['report_data'][i]['findings'].append({
+                            'location': '',
+                            'current_state': '',
+                            'suggested_work': '',
+                            'priority': '中',
+                            'notes': ''
+                        })
+                        st.rerun()
+                
+                elif item.get("observation"):
+                    # 所見の編集
+                    new_observation = st.text_area(
+                        "所見",
+                        value=item.get('observation', ''),
+                        key=f"observation_{i}",
+                        height=100
+                    )
+                    st.session_state.edited_report['report_data'][i]['observation'] = new_observation
+                    
+                    # 指摘事項に変更ボタン
+                    if st.button(f"🔄 指摘事項に変更", key=f"convert_{i}"):
+                        st.session_state.edited_report['report_data'][i]['observation'] = ''
+                        st.session_state.edited_report['report_data'][i]['findings'] = [{
+                            'location': '',
+                            'current_state': '',
+                            'suggested_work': '',
+                            'priority': '中',
+                            'notes': ''
+                        }]
+                        st.rerun()
+                else:
+                    st.info("✅ 修繕必要箇所なし")
+                    if st.button(f"➕ 指摘事項を追加", key=f"add_new_{i}"):
+                        st.session_state.edited_report['report_data'][i]['findings'] = [{
+                            'location': '',
+                            'current_state': '',
+                            'suggested_work': '',
+                            'priority': '中',
+                            'notes': ''
+                        }]
+                        st.rerun()
+            
+            st.markdown("---")
+
 def display_full_report(report_payload, files_dict):
+    """読み取り専用のレポート表示（既存の関数）"""
     report_data = report_payload.get('report_data', [])
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
@@ -698,21 +896,48 @@ def main():
     if st.session_state.report_payload is not None:
         st.success("✅ レポートの作成が完了しました！")
         
-        # 印刷ガイダンス（目立つように表示）
-        st.markdown("""
-            <div class="print-guidance">
-                <strong>📄 PDFとして保存する方法：</strong><br>
-                画面右上の「⋮」（3点メニュー）をクリックして、<br>
-                <strong style="font-size: 1.3rem;">「Print」</strong> を選択してください
-            </div>
-        """, unsafe_allow_html=True)
+        # 編集モードの切り替えボタン
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.session_state.edit_mode:
+                if st.button("💾 編集を保存して表示モードへ", key="save_edit", use_container_width=True):
+                    # 編集内容を保存
+                    st.session_state.report_payload = json.loads(json.dumps(st.session_state.edited_report))
+                    st.session_state.edit_mode = False
+                    st.rerun()
+            else:
+                if st.button("✏️ レポートを編集", key="start_edit", use_container_width=True):
+                    st.session_state.edit_mode = True
+                    st.session_state.edited_report = None  # 編集データをリセット
+                    st.rerun()
         
-        # 新しいレポート作成ボタンのみ表示
-        if st.button("🔄 新しいレポートを作成", key="new_from_result", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
+        with col2:
+            if st.session_state.edit_mode:
+                if st.button("❌ 編集をキャンセル", key="cancel_edit", use_container_width=True):
+                    st.session_state.edit_mode = False
+                    st.session_state.edited_report = None
+                    st.rerun()
         
-        display_full_report(st.session_state.report_payload, st.session_state.files_dict)
+        with col3:
+            if st.button("🔄 新しいレポートを作成", key="new_from_result", use_container_width=True):
+                st.session_state.clear()
+                st.rerun()
+        
+        # 印刷ガイダンス（表示モードのみ）
+        if not st.session_state.edit_mode:
+            st.markdown("""
+                <div class="print-guidance">
+                    <strong>📄 PDFとして保存する方法：</strong><br>
+                    画面右上の「⋮」（3点メニュー）をクリックして、<br>
+                    <strong style="font-size: 1.3rem;">「Print」</strong> を選択してください
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # レポート表示
+        if st.session_state.edit_mode:
+            display_editable_report(st.session_state.report_payload, st.session_state.files_dict)
+        else:
+            display_full_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
     # --- 状態2: 初期画面（入力フォーム） ---
