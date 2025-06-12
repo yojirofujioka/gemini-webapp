@@ -8,6 +8,7 @@ from datetime import date
 import math
 from PIL import Image
 import io
+import html
 
 # ----------------------------------------------------------------------
 # 1. 設定と定数
@@ -32,6 +33,7 @@ def inject_custom_css():
             .stButton { display: none !important; }
             .stAlert { display: none !important; }
             button { display: none !important; }
+            div[data-testid="stDecoration"] { display: none !important; }
             
             /* ページ設定 */
             @page {
@@ -45,15 +47,40 @@ def inject_custom_css():
                 max-width: 100% !important;
             }
             
-            /* カラムのブレイク防止 */
+            /* 印刷時は1列レイアウトに変更 */
             [data-testid="column"] {
-                break-inside: avoid !important;
-                page-break-inside: avoid !important;
+                width: 100% !important;
+                flex: 100% !important;
+                max-width: 100% !important;
+            }
+            
+            /* 2列グリッドを無効化 */
+            .main [data-testid="stHorizontalBlock"] {
+                flex-direction: column !important;
             }
             
             /* 写真セクションのブレイク防止 */
-            .photo-section {
+            .photo-section-wrapper {
                 break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                display: block !important;
+                width: 100% !important;
+                margin-bottom: 30px !important;
+                border: 1px solid #e5e7eb !important;
+                padding: 20px !important;
+                background: white !important;
+            }
+            
+            /* 画像のサイズ調整 */
+            .stImage {
+                max-width: 250px !important;
+                margin: 10px auto !important;
+            }
+            
+            /* 指摘事項のスタイル調整 */
+            .finding-high, .finding-medium, .finding-low {
+                margin-bottom: 10px !important;
+                padding: 10px !important;
                 page-break-inside: avoid !important;
             }
         }
@@ -66,70 +93,106 @@ def inject_custom_css():
             margin-bottom: 2rem;
         }
         
-        .summary-card {
-            background-color: #F9FAFB;
+        /* ダークモード対応のサマリーカード */
+        .metric-card {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: 12px;
             text-align: center;
             height: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
-        .summary-value {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #1F2937;
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 800;
             margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .summary-value-high {
-            color: #DC2626;
+        .metric-value-high {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .photo-section {
-            background-color: #FFFFFF;
-            border: 1px solid #E5E7EB;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
+        .metric-label {
+            font-size: 1rem;
+            color: #4b5563;
+            font-weight: 600;
+        }
+        
+        /* ダークモードでも見やすい写真セクション */
+        .photo-section-wrapper {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(229, 231, 235, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
             break-inside: avoid;
             page-break-inside: avoid;
         }
         
         .finding-high {
-            background-color: #FEE2E2;
-            border-left: 4px solid #DC2626;
-            padding: 0.8rem;
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left: 4px solid #dc2626;
+            padding: 1rem;
             margin-bottom: 0.8rem;
-            border-radius: 4px;
+            border-radius: 8px;
+            color: #7f1d1d;
         }
         
         .finding-medium {
-            background-color: #FEF3C7;
-            border-left: 4px solid #F59E0B;
-            padding: 0.8rem;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
             margin-bottom: 0.8rem;
-            border-radius: 4px;
+            border-radius: 8px;
+            color: #78350f;
         }
         
         .finding-low {
-            background-color: #DBEAFE;
-            border-left: 4px solid #3B82F6;
-            padding: 0.8rem;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
             margin-bottom: 0.8rem;
-            border-radius: 4px;
+            border-radius: 8px;
+            color: #1e3a8a;
         }
         
         .observation-box {
-            background-color: #D1FAE5;
-            padding: 0.8rem;
-            border-radius: 6px;
-            color: #065F46;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            padding: 1rem;
+            border-radius: 8px;
+            color: #064e3b;
         }
         
         .no-finding-box {
-            color: #059669;
-            padding: 0.8rem;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #047857;
+            padding: 1rem;
             text-align: center;
+            border-radius: 8px;
+        }
+        
+        /* ダークモード対応 */
+        @media (prefers-color-scheme: dark) {
+            .metric-card {
+                background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            }
+            
+            .metric-label {
+                color: #d1d5db;
+            }
+            
+            .photo-section-wrapper {
+                background-color: rgba(255, 255, 255, 0.1);
+                border-color: rgba(229, 231, 235, 0.3);
+            }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -192,6 +255,7 @@ def parse_json_response(text):
 # ----------------------------------------------------------------------
 def display_finding(finding):
     """個別の指摘事項を表示"""
+    
     priority = finding.get('priority', '中')
     priority_class = {
         '高': 'finding-high',
@@ -205,13 +269,26 @@ def display_finding(finding):
         '低': '🔵'
     }.get(priority, '🟡')
     
-    st.markdown(f'<div class="{priority_class}">', unsafe_allow_html=True)
-    st.markdown(f"**{priority_emoji} 指摘箇所: {finding.get('location', 'N/A')}** (緊急度: {priority})")
-    st.write(f"**現状:** {finding.get('current_state', 'N/A')}")
-    st.write(f"**提案工事:** {finding.get('suggested_work', 'N/A')}")
+    # HTMLエスケープ
+    location = html.escape(str(finding.get('location', 'N/A')))
+    current_state = html.escape(str(finding.get('current_state', 'N/A')))
+    suggested_work = html.escape(str(finding.get('suggested_work', 'N/A')))
+    
+    finding_html = f'''
+    <div class="{priority_class}">
+        <strong>{priority_emoji} 指摘箇所: {location}</strong> (緊急度: {priority})
+        <div style="margin-top: 0.5rem;">
+            <div><strong>現状:</strong> {current_state}</div>
+            <div><strong>提案工事:</strong> {suggested_work}</div>
+    '''
+    
     if finding.get('notes'):
-        st.write(f"**備考:** {finding.get('notes', '')}")
-    st.markdown('</div>', unsafe_allow_html=True)
+        notes = html.escape(str(finding.get('notes', '')))
+        finding_html += f'<div><strong>備考:</strong> {notes}</div>'
+    
+    finding_html += '</div></div>'
+    
+    st.markdown(finding_html, unsafe_allow_html=True)
 
 def display_full_report(report_payload, files_dict):
     report_data = report_payload.get('report_data', [])
@@ -235,29 +312,35 @@ def display_full_report(report_payload, files_dict):
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown('<div class="summary-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="summary-value">{len(report_data)}</div>', unsafe_allow_html=True)
-        st.markdown('<div>分析写真枚数</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{len(report_data)}</div>
+                <div class="metric-label">分析写真枚数</div>
+            </div>
+        ''', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="summary-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="summary-value">{total_findings}</div>', unsafe_allow_html=True)
-        st.markdown('<div>総指摘件数</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{total_findings}</div>
+                <div class="metric-label">総指摘件数</div>
+            </div>
+        ''', unsafe_allow_html=True)
     
     with col3:
-        st.markdown('<div class="summary-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="summary-value summary-value-high">{high_priority_count}</div>', unsafe_allow_html=True)
-        st.markdown('<div>緊急度「高」</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value metric-value-high">{high_priority_count}</div>
+                <div class="metric-label">緊急度「高」</div>
+            </div>
+        ''', unsafe_allow_html=True)
     
     st.markdown("---")
     
     # 詳細分析結果
     st.header("📋 詳細分析結果")
     
-    # 2列レイアウトで写真を表示
+    # 2列レイアウトで写真を表示（印刷時は自動的に1列になる）
     for i in range(0, len(report_data), 2):
         cols = st.columns(2)
         
@@ -266,8 +349,10 @@ def display_full_report(report_payload, files_dict):
                 item = report_data[i + j]
                 
                 with col:
-                    st.markdown('<div class="photo-section">', unsafe_allow_html=True)
-                    st.subheader(f"{i + j + 1}. {item.get('file_name', '')}")
+                    # 印刷時にページをまたがないようにラッパーdivで囲む
+                    st.markdown('<div class="photo-section-wrapper">', unsafe_allow_html=True)
+                    file_name = html.escape(str(item.get('file_name', '')))
+                    st.subheader(f"{i + j + 1}. {file_name}")
                     
                     # 写真を表示
                     if files_dict and item.get('file_name') in files_dict:
@@ -280,7 +365,7 @@ def display_full_report(report_payload, files_dict):
                             ratio = max_width / image.width
                             new_height = int(image.height * ratio)
                             image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
-                        st.image(image, use_column_width=True)
+                        st.image(image, use_container_width=True)
                     
                     # 指摘事項を表示
                     findings = item.get("findings", [])
@@ -288,13 +373,18 @@ def display_full_report(report_payload, files_dict):
                         for finding in findings:
                             display_finding(finding)
                     elif item.get("observation"):
-                        st.markdown('<div class="observation-box">', unsafe_allow_html=True)
-                        st.write(f"📋 **所見:** {item['observation']}")
-                        st.markdown('</div>', unsafe_allow_html=True)
+                        observation = html.escape(str(item.get('observation', '')))
+                        st.markdown(f'''
+                            <div class="observation-box">
+                                📋 <strong>所見:</strong> {observation}
+                            </div>
+                        ''', unsafe_allow_html=True)
                     else:
-                        st.markdown('<div class="no-finding-box">', unsafe_allow_html=True)
-                        st.write("✅ 修繕必要箇所なし")
-                        st.markdown('</div>', unsafe_allow_html=True)
+                        st.markdown('''
+                            <div class="no-finding-box">
+                                ✅ 修繕必要箇所なし
+                            </div>
+                        ''', unsafe_allow_html=True)
                     
                     st.markdown('</div>', unsafe_allow_html=True)
 
