@@ -88,14 +88,30 @@ def get_finding_html(finding):
     return html
 
 def display_print_preview(report_payload, files_dict):
-    """印刷専用のプレビューページを表示する"""
+    """印刷専用のプレビューページを純粋なHTMLで生成して表示する"""
     st.markdown("""
     <style>
         /* 印刷プレビューページではStreamlitのUIをすべて非表示 */
         #root > div:nth-child(1) > div.withScreencast > div > div > header, 
         #root > div:nth-child(1) > div.withScreencast > div > div > footer,
         #stDecoration { display: none !important; }
-        
+        .main .block-container { padding: 1rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    if st.button("⬅️ 通常表示に戻る"):
+        st.session_state.print_mode = False
+        st.rerun()
+
+    st.info("この画面でブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
+    
+    # --- 純粋なHTMLを生成 ---
+    report_data = report_payload.get('report_data', [])
+    report_title = report_payload.get('title', '')
+    survey_date = report_payload.get('date', '')
+
+    html = """
+    <style>
         body { font-family: sans-serif; background-color: #fff !important; }
         .print-header { text-align: center; margin-bottom: 20px; }
         .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-after: always; }
@@ -107,50 +123,39 @@ def display_print_preview(report_payload, files_dict):
         .priority-badge { display: inline-block; padding: 2px 6px; border-radius: 15px; font-weight: 600; color: white; font-size: 8px; margin-left: 5px; }
         .priority-high { background-color: #DC2626; } .priority-medium { background-color: #F59E0B; } .priority-low { background-color: #3B82F6; }
     </style>
-    """, unsafe_allow_html=True)
-
-    if st.button("⬅️ 通常表示に戻る"):
-        st.session_state.print_mode = False
-        st.rerun()
-
-    st.info("この画面でブラウザの印刷機能（Ctrl+P または Cmd+P）を使用してください。")
-    st.markdown("<hr>")
-
-    report_data = report_payload.get('report_data', [])
-    report_title = report_payload.get('title', '')
-    survey_date = report_payload.get('date', '')
-
-    st.markdown(f"<div class='print-header'><h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p></div>", unsafe_allow_html=True)
+    """
+    html += f"<div class='print-header'><h1>現場分析レポート</h1><p><b>物件名・案件名:</b> {report_title or '（未設定）'}<br><b>調査日:</b> {survey_date}</p></div>"
     
     for i in range(0, len(report_data), 3):
-        st.markdown('<div class="print-grid">', unsafe_allow_html=True)
-        cols = st.columns(3)
+        html += '<div class="print-grid">'
         for j in range(3):
             if i + j < len(report_data):
-                with cols[j]:
-                    item = report_data[i+j]
-                    file_name = item.get('file_name', '')
-                    
-                    st.markdown(f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>', unsafe_allow_html=True)
-                    
-                    st.markdown('<div class="image-box">', unsafe_allow_html=True)
-                    if files_dict and file_name in files_dict:
-                        st.image(files_dict[file_name], use_container_width=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    text_html = ""
-                    findings = item.get("findings", [])
-                    if findings:
-                        for find in findings:
-                            text_html += get_finding_html(find) + "<br><br>"
-                    elif item.get("observation"):
-                        text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
-                    else:
-                        text_html = "特に修繕が必要な箇所は見つかりませんでした。"
-                    
-                    st.markdown(f'<div class="text-box">{text_html}</div></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
+                item = report_data[i+j]
+                file_name = item.get('file_name', '')
+                
+                image_html = '<div class="image-box">'
+                if files_dict and file_name in files_dict:
+                    image_bytes = files_dict[file_name].getvalue()
+                    b64_img = base64.b64encode(image_bytes).decode()
+                    image_html += f'<img src="data:image/png;base64,{b64_img}">'
+                image_html += '</div>'
+                
+                text_html = ""
+                findings = item.get("findings", [])
+                if findings:
+                    for find in findings:
+                        text_html += get_finding_html(find) + "<br><br>"
+                elif item.get("observation"):
+                    text_html = f"<b>【AIによる所見】</b><br>{item['observation']}"
+                else:
+                    text_html = "特に修繕が必要な箇所は見つかりませんでした。"
+                
+                html += f'<div class="print-item"><h3>{i+j+1}. {file_name}</h3>{image_html}<div class="text-box">{text_html}</div></div>'
+            else:
+                html += "<div></div>" # グリッドの空きを埋める
+        html += '</div>'
+        
+    st.markdown(html, unsafe_allow_html=True)
 
 def display_main_report(report_payload, files_dict):
     """画面表示用の通常レポートを表示する"""
@@ -212,22 +217,17 @@ def display_main_report(report_payload, files_dict):
 def main():
     model = initialize_vertexai()
 
-    # 状態管理の初期化
-    if 'processing' not in st.session_state: st.session_state.processing = False
     if 'print_mode' not in st.session_state: st.session_state.print_mode = False
     if 'report_payload' not in st.session_state: st.session_state.report_payload = None
 
-    # --- 状態1: 印刷プレビューモード ---
     if st.session_state.print_mode:
         display_print_preview(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    # --- 状態2: レポートが生成済み ---
     if st.session_state.report_payload:
         display_main_report(st.session_state.report_payload, st.session_state.files_dict)
         return
 
-    # --- 状態3: 初期画面（入力フォーム） ---
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
     if not model: st.warning("AIモデルを読み込めませんでした。"); st.stop()
@@ -239,6 +239,8 @@ def main():
         accept_multiple_files=True, key="file_uploader"
     )
     if uploaded_files: st.success(f"{len(uploaded_files)}件の写真がアップロードされました。")
+    
+    if 'processing' not in st.session_state: st.session_state.processing = False
     
     submitted = st.button(
         "レポートを作成する", type="primary", use_container_width=True,
@@ -253,7 +255,6 @@ def main():
         st.rerun()
 
 def run_analysis():
-    """st.rerunの後に実行される分析処理の本体"""
     model = initialize_vertexai()
     uploaded_files = st.session_state.uploaded_files
     report_title = st.session_state.report_title_val
