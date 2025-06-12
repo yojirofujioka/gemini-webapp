@@ -10,7 +10,7 @@ from google.oauth2 import service_account
 # ----------------------------------------------------------------------
 # Streamlitページの基本的な設定
 st.set_page_config(
-    page_title="AIリフォーム箇所分析",
+    page_title="AIリフォーム箇所分析レポート",
     page_icon="🏠",
     layout="wide"
 )
@@ -19,8 +19,8 @@ st.set_page_config(
 try:
     GCP_SECRETS = st.secrets["gcp"]
     GCP_PROJECT_ID = GCP_SECRETS["project_id"]
-    GCP_REGION = "asia-northeast1"  # モデルが対応しているリージョン
-    MODEL_NAME = "gemini-1.5-pro" # 使用するモデル名
+    GCP_REGION = "asia-northeast1"
+    MODEL_NAME = "gemini-1.5-pro"  # ご指定のモデル名に変更
     SERVICE_ACCOUNT_INFO = json.loads(GCP_SECRETS["gcp_service_account"])
 except Exception as e:
     st.error(f"StreamlitのSecrets設定の読み込みに失敗しました。`[gcp]`セクションと`project_id`, `gcp_service_account`を確認してください。エラー: {e}")
@@ -52,7 +52,6 @@ def create_report_prompt(filenames):
     AIに渡すための詳細なプロンプトを生成する。
     JSON形式での出力を厳密に指示する。
     """
-    # ファイル名リストを文字列に変換
     file_list_str = "\n".join([f"- {name}" for name in filenames])
 
     return f"""
@@ -92,10 +91,7 @@ def generate_report(model, uploaded_files, prompt):
     """
     画像とプロンプトをVertex AIに送信し、分析レポートを生成する。
     """
-    # 画像データをVertex AIが扱えるPartオブジェクトに変換
     image_parts = [Part.from_data(f.getvalue(), mime_type=f.type) for f in uploaded_files]
-
-    # プロンプトと画像を結合して送信
     contents = [prompt] + image_parts
     response = model.generate_content(contents)
     return response.text
@@ -105,95 +101,101 @@ def parse_json_response(text):
     AIからのテキスト応答をパースしてPythonの辞書オブジェクトに変換する。
     応答にありがちなマークダウンの```json ...```を先に除去する。
     """
-    # ```json ... ``` や ``` ... ``` を取り除く正規表現
     match = re.search(r'```(json)?\s*(.*?)\s*```', text, re.DOTALL)
-    if match:
-        # マッチした内側の部分（JSON文字列）を抽出
-        json_str = match.group(2)
-    else:
-        # マッチしない場合は、テキスト全体をJSONとみなす
-        json_str = text
-
+    json_str = match.group(2) if match else text
     try:
-        # JSON文字列をPythonオブジェクトに変換
         return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        st.error(f"AIの応答をJSONとして解析できませんでした。")
+    except json.JSONDecodeError:
+        st.error("AIの応答をJSONとして解析できませんでした。")
         st.info("AIからの生の応答:")
         st.code(text, language="text")
         return None
 
 def display_report(report_data, uploaded_files_dict):
     """
-    解析されたレポートデータを元に、Streamlit上で結果を分かりやすく表示する。
+    解析されたレポートデータを、PDF化に適した一枚のレポート形式で表示する。
     """
-    st.subheader("📝 AI分析レポート")
+    # 1. レポート全体のサマリーを表示
+    total_findings = sum(len(item.get("findings", [])) for item in report_data)
+    high_priority_count = sum(
+        1 for item in report_data 
+        for finding in item.get("findings", []) 
+        if finding.get("priority") == "高"
+    )
+
+    st.header("【現場分析レポート】")
+    st.markdown("---")
+    st.subheader("📊 分析結果サマリー")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("分析写真枚数", f"{len(report_data)} 枚")
+    col2.metric("総指摘件数", f"{total_findings} 件")
+    col3.metric("緊急度「高」の件数", f"{high_priority_count} 件")
+    
     st.markdown("---")
 
-    # ファイル名でデータを整理
-    for report_item in report_data:
+    # 2. 個別の詳細レポートを順に表示
+    st.subheader("📋 個別分析レポート")
+
+    for i, report_item in enumerate(report_data):
         file_name = report_item.get("file_name")
         findings = report_item.get("findings", [])
-        
-        # 対応するアップロードファイルを取得
         image_file = uploaded_files_dict.get(file_name)
 
         if not image_file:
-            st.warning(f"レポート内のファイル名 `{file_name}` に一致するアップロードファイルが見つかりません。")
+            st.warning(f"レポート内のファイル名 `{file_name}` に一致するファイルが見つかりません。")
             continue
-        
-        # 写真ごとにExpanderで結果を表示
-        with st.expander(f"**{file_name}** の分析結果 ({len(findings)}件の指摘)", expanded=True):
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                st.image(image_file, caption=f"分析対象: {file_name}", use_column_width=True)
 
-            with col2:
-                if not findings:
-                    st.success("✅ この写真では、特に修繕が必要な箇所は見つかりませんでした。")
-                else:
-                    for i, finding in enumerate(findings, 1):
-                        st.markdown(f"**指摘 {i}: {finding.get('location', 'N/A')}**")
-                        
-                        # 緊急度に応じて色分け
-                        priority = finding.get('priority', 'N/A')
-                        if priority == "高":
-                            st.error(f"**緊急度:** {priority}")
-                        elif priority == "中":
-                            st.warning(f"**緊急度:** {priority}")
-                        else:
-                            st.info(f"**緊急度:** {priority}")
-                        
-                        st.markdown(f"**現状:** {finding.get('current_state', 'N/A')}")
-                        st.markdown(f"**提案工事:** {finding.get('suggested_work', 'N/A')}")
-                        if finding.get('notes'):
-                            st.markdown(f"**備考:** {finding.get('notes', 'N/A')}")
-                        
-                        if i < len(findings):
-                            st.markdown("---")
+        st.markdown(f"### **{i + 1}. 写真ファイル: `{file_name}`**")
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            # 警告が出ないように use_container_width=True に変更
+            st.image(image_file, caption=f"分析対象: {file_name}", use_container_width=True)
+
+        with col2:
+            if not findings:
+                st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
+            else:
+                for j, finding in enumerate(findings, 1):
+                    st.markdown(f"**指摘 {j}: {finding.get('location', 'N/A')}**")
+                    
+                    priority = finding.get('priority', 'N/A')
+                    if priority == "高":
+                        st.error(f"**緊急度:** {priority}")
+                    elif priority == "中":
+                        st.warning(f"**緊急度:** {priority}")
+                    else:
+                        st.info(f"**緊急度:** {priority}")
+                    
+                    st.markdown(f"- **現状:** {finding.get('current_state', 'N/A')}")
+                    st.markdown(f"- **提案工事:** {finding.get('suggested_work', 'N/A')}")
+                    if finding.get('notes'):
+                        st.markdown(f"- **備考:** {finding.get('notes', 'N/A')}")
+                    
+                    if j < len(findings):
+                        st.markdown("---")
+        
+        # 各写真レポートの区切り線
+        st.markdown("<hr style='border:2px solid #ddd'>", unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------
 # 3. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
-    """
-    Streamlitアプリケーションの本体
-    """
     st.title("📷 AIリフォーム箇所分析＆報告書作成サービス")
     st.markdown("""
     リフォームや原状回復が必要な現場の写真をアップロードしてください。  
     AIが写真を詳細に分析し、クライアント向けの修繕提案レポートを項目ごとに作成します。
     """)
 
-    # --- Vertex AIの初期化 ---
     model = initialize_vertexai()
     if not model:
         st.warning("AIモデルを読み込めませんでした。管理者にお問い合わせください。")
         st.stop()
 
-    # --- ファイルアップロード ---
     uploaded_files = st.file_uploader(
         "分析したい写真を選択してください（複数選択可）",
         type=["png", "jpg", "jpeg"],
@@ -204,32 +206,29 @@ def main():
         st.info("分析を開始するには、まず写真をアップロードしてください。")
         st.stop()
 
-    # --- 分析実行ボタン ---
-    if st.button("分析を開始する", type="primary"):
+    if st.button("レポートを作成する", type="primary", use_container_width=True):
         with st.spinner("AIが写真を分析し、レポートを作成中です…"):
             try:
-                # 1. プロンプト生成
                 filenames = [f.name for f in uploaded_files]
                 prompt = create_report_prompt(filenames)
-
-                # 2. AI分析実行
                 response_text = generate_report(model, uploaded_files, prompt)
-
-                # 3. レスポンス（JSON）の解析
                 report_data = parse_json_response(response_text)
                 
                 if report_data:
-                    # 4. 結果表示
-                    # ファイル名をキーにした辞書を作成して、画像とレポートを紐付けやすくする
-                    uploaded_files_dict = {f.name: f for f in uploaded_files}
-                    display_report(report_data, uploaded_files_dict)
-                    st.success("✅ レポートの作成が完了しました！")
+                    # セッションステートに結果を保存
+                    st.session_state.report_data = report_data
+                    st.session_state.uploaded_files_dict = {f.name: f for f in uploaded_files}
+                    st.success("✅ レポートの作成が完了しました！下にスクロールして結果をご確認ください。")
                 else:
-                    # parse_json_response内でエラーメッセージは表示済み
-                    pass
+                    st.error("レポートデータの生成に失敗しました。")
 
             except Exception as e:
                 st.error(f"分析中に予期せぬエラーが発生しました: {e}")
+
+    # セッションステートにレポートデータがあれば表示する
+    if 'report_data' in st.session_state:
+        display_report(st.session_state.report_data, st.session_state.uploaded_files_dict)
+        st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使い、「送信先」で「PDFとして保存」を選択してください。")
 
 
 if __name__ == "__main__":
