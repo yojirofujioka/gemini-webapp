@@ -163,6 +163,20 @@ def inject_custom_css():
             background-color: #3b82f6 !important;
         }
         
+        /* コードブロックを非表示（レポート表示時） */
+        .report-container .stCodeBlock,
+        .report-container pre.language-text,
+        .report-container pre.language-python,
+        .report-container pre.language-json,
+        .report-container pre.language-javascript,
+        .report-container pre.language-html,
+        .report-container pre.language-css,
+        .report-container pre[class*="language-"],
+        .report-container .highlight,
+        .report-container .hljs {
+            display: none !important;
+        }
+        
         /* ========== カスタムスタイル ========== */
         /* 基本スタイル */
         .report-header {
@@ -324,6 +338,19 @@ def inject_custom_css():
             padding-bottom: 0;
         }
         
+        /* レポート表示モード時はコードブロックを完全に非表示 */
+        body:has(.report-mode-marker) .stCodeBlock,
+        body:has(.report-mode-marker) pre,
+        body:has(.report-mode-marker) code,
+        body:has(.report-mode-marker) [data-testid="stCode"],
+        body:has(.report-mode-marker) .element-container:has(pre),
+        body:has(.report-mode-marker) .element-container:has(code) {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+        
         /* ========== 印刷用スタイル ========== */
         @media print {
             /* 背景を白に設定 */
@@ -345,7 +372,31 @@ def inject_custom_css():
             .stCaption,
             .st-emotion-cache-1wrcr25,
             .st-emotion-cache-12w0qpk,
-            footer {
+            footer,
+            /* コードブロックと開発者ツールを非表示 */
+            .stCodeBlock,
+            pre,
+            code,
+            .element-container:has(pre),
+            .element-container:has(code),
+            [data-testid="stCode"],
+            [data-testid="stCodeBlock"],
+            .stMarkdown pre,
+            .stMarkdown code,
+            /* 黒い背景の要素を非表示 */
+            [style*="background-color: black"],
+            [style*="background: black"],
+            [style*="background-color: #000"],
+            [style*="background: #000"],
+            [style*="background-color: rgb(0, 0, 0)"],
+            [style*="background: rgb(0, 0, 0)"],
+            /* 開発者ツール関連 */
+            .dev-tools,
+            .console,
+            .inspector,
+            #react-devtools-root,
+            [class*="devtools"],
+            [id*="devtools"] {
                 display: none !important;
             }
             
@@ -476,6 +527,24 @@ def inject_custom_css():
                 page-break-after: avoid !important;
             }
             
+            /* すべての黒背景要素とコード関連要素を強制的に非表示 */
+            .stApp > div > div > div > div[style*="background"],
+            .stApp [class*="css"][style*="background: rgb(0"],
+            .stApp [class*="css"][style*="background-color: rgb(0"],
+            div[class*="photo-row"] {
+                background: white !important;
+                background-color: white !important;
+            }
+            
+            /* 印刷に不要な要素を完全に除去 */
+            .stApp > div > div > div > div:has(pre),
+            .stApp > div > div > div > div:has(code) {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                overflow: hidden !important;
+            }
+            
             /* 余分なページブレークを防ぐ */
             .stMarkdown:last-child,
             .element-container:last-child,
@@ -484,6 +553,16 @@ def inject_custom_css():
                 margin-bottom: 0 !important;
                 padding-bottom: 0 !important;
             }
+            
+            /* その他の不要な要素 */
+            .css-1v0mbdj,
+            .css-1cpxqw2,
+            iframe,
+            script,
+            noscript {
+                display: none !important;
+            }
+        }
         }
         
         /* Ctrl+Pを無効化 */
@@ -505,6 +584,22 @@ def inject_custom_css():
                 alert('PDFとして保存するには、画面右上の「⋮」メニューから「Print」を選択してください。');
                 return false;
             }
+        });
+        
+        // 印刷前にコード要素を削除
+        window.addEventListener('beforeprint', function() {
+            // コードブロックを非表示
+            const codeElements = document.querySelectorAll('pre, code, .stCodeBlock, [data-testid="stCode"], .highlight');
+            codeElements.forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // 黒背景の要素を白に変更
+            const blackElements = document.querySelectorAll('[style*="background: black"], [style*="background-color: black"], [style*="background: rgb(0"], [style*="background-color: rgb(0"]');
+            blackElements.forEach(el => {
+                el.style.backgroundColor = 'white';
+                el.style.color = 'black';
+            });
         });
     </script>
     """, unsafe_allow_html=True)
@@ -559,7 +654,10 @@ def parse_json_response(text):
         return json.loads(json_str)
     except json.JSONDecodeError:
         st.error("AIの応答をJSONとして解析できませんでした。")
-        st.info("AIからの生の応答:"); st.code(text, language="text")
+        # 印刷時に非表示になるようにコンテナでラップ
+        with st.container():
+            st.info("AIからの生の応答:")
+            st.code(text, language="text")
         return None
 
 # ----------------------------------------------------------------------
@@ -658,92 +756,94 @@ def display_full_report(report_payload, files_dict):
     report_title = report_payload.get('title', '')
     survey_date = report_payload.get('date', '')
     
-    # レポートコンテンツコンテナ
-    report_container = st.container()
+    # レポートコンテンツコンテナ（report-containerクラスを追加）
+    st.markdown('<div class="report-container">', unsafe_allow_html=True)
     
-    with report_container:
-        # ヘッダー
-        st.markdown('<div class="report-header">', unsafe_allow_html=True)
-        st.title("🏠 現場分析レポート")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"**物件名:** {report_title or '（未設定）'}")
-        with col2:
-            st.markdown(f"**調査日:** {survey_date}")
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ヘッダー
+    st.markdown('<div class="report-header">', unsafe_allow_html=True)
+    st.title("🏠 現場分析レポート")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"**物件名:** {report_title or '（未設定）'}")
+    with col2:
+        st.markdown(f"**調査日:** {survey_date}")
+    st.markdown('</div>', unsafe_allow_html=True)
         
-        # サマリー
-        st.header("📊 分析結果サマリー")
-        total_findings = sum(len(item.get("findings", [])) for item in report_data)
-        high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
+    # サマリー
+    st.header("📊 分析結果サマリー")
+    total_findings = sum(len(item.get("findings", [])) for item in report_data)
+    high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{len(report_data)}</div>
+                <div class="metric-label">分析写真枚数</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value">{total_findings}</div>
+                <div class="metric-label">総指摘件数</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-value metric-value-high">{high_priority_count}</div>
+                <div class="metric-label">緊急度「高」</div>
+            </div>
+        ''', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 詳細分析結果
+    st.header("📋 詳細分析結果")
+    
+    # プログレスバーで画像処理状況を表示
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # 写真のHTMLを集める
+    photo_rows_html = []
+    
+    # 各写真を処理
+    for i, item in enumerate(report_data):
+        # 進捗状況を更新
+        progress = (i + 1) / len(report_data)
+        progress_bar.progress(progress)
+        status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
         
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f'''
-                <div class="metric-card">
-                    <div class="metric-value">{len(report_data)}</div>
-                    <div class="metric-label">分析写真枚数</div>
-                </div>
-            ''', unsafe_allow_html=True)
+        img_base64 = None
+        if files_dict and item.get('file_name') in files_dict:
+            file_obj = files_dict[item['file_name']]
+            # 画像を最適化
+            img_base64 = optimize_image_for_display(file_obj)
         
-        with col2:
-            st.markdown(f'''
-                <div class="metric-card">
-                    <div class="metric-value">{total_findings}</div>
-                    <div class="metric-label">総指摘件数</div>
-                </div>
-            ''', unsafe_allow_html=True)
+        # 最後の要素かどうか判定
+        is_last = (i == len(report_data) - 1)
         
-        with col3:
-            st.markdown(f'''
-                <div class="metric-card">
-                    <div class="metric-value metric-value-high">{high_priority_count}</div>
-                    <div class="metric-label">緊急度「高」</div>
-                </div>
-            ''', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # 詳細分析結果
-        st.header("📋 詳細分析結果")
-        
-        # プログレスバーで画像処理状況を表示
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # 写真のHTMLを集める
-        photo_rows_html = []
-        
-        # 各写真を処理
-        for i, item in enumerate(report_data):
-            # 進捗状況を更新
-            progress = (i + 1) / len(report_data)
-            progress_bar.progress(progress)
-            status_text.text(f"画像を処理中... ({i + 1}/{len(report_data)})")
-            
-            img_base64 = None
-            if files_dict and item.get('file_name') in files_dict:
-                file_obj = files_dict[item['file_name']]
-                # 画像を最適化
-                img_base64 = optimize_image_for_display(file_obj)
-            
-            # 最後の要素かどうか判定
-            is_last = (i == len(report_data) - 1)
-            
-            # 横並びの写真行のHTMLを作成
-            photo_row_html = create_photo_row_html(i + 1, item, img_base64, is_last)
-            photo_rows_html.append(photo_row_html)
-        
-        # プログレスバーを削除
-        progress_bar.empty()
-        status_text.empty()
-        
-        # すべての写真を一度に表示
-        all_photos_html = ''.join(photo_rows_html)
-        st.markdown(f'<div class="report-content-wrapper">{all_photos_html}</div>', unsafe_allow_html=True)
-        
-        # レポートの終端マーカー
-        st.markdown('<div class="report-content-end"></div>', unsafe_allow_html=True)
+        # 横並びの写真行のHTMLを作成
+        photo_row_html = create_photo_row_html(i + 1, item, img_base64, is_last)
+        photo_rows_html.append(photo_row_html)
+    
+    # プログレスバーを削除
+    progress_bar.empty()
+    status_text.empty()
+    
+    # すべての写真を一度に表示
+    all_photos_html = ''.join(photo_rows_html)
+    st.markdown(f'<div class="report-content-wrapper">{all_photos_html}</div>', unsafe_allow_html=True)
+    
+    # レポートの終端マーカー
+    st.markdown('<div class="report-content-end"></div>', unsafe_allow_html=True)
+    
+    # レポートコンテナを閉じる
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
 # 5. メインアプリケーション
@@ -756,6 +856,9 @@ def main():
 
     # --- 状態1: レポートが生成済み ---
     if st.session_state.report_payload is not None:
+        # レポート表示モードのマーカー
+        st.markdown('<div class="report-mode-marker" style="display:none"></div>', unsafe_allow_html=True)
+        
         st.success("✅ レポートの作成が完了しました！")
         
         # 印刷ガイダンス（目立つように表示）
