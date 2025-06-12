@@ -59,7 +59,6 @@ def inject_custom_css():
             margin-top: 2rem;
             border-top: 1px solid #e0e0e0;
         }
-        /* 最初の写真セクションには上線と余白は不要 */
         .report-container .photo-section:first-of-type {
             border-top: none;
             padding-top: 0;
@@ -97,14 +96,20 @@ def initialize_vertexai():
         return None
 
 def create_report_prompt(filenames):
+    """ AIへの指示を生成する。修繕指摘がない場合の指示を追加。 """
     file_list_str = "\n".join([f"- {name}" for name in filenames])
     return f"""
 あなたは、日本のリフォーム・原状回復工事を専門とする、経験豊富な現場監督です。あなたの仕事は、提供された現場写真を分析し、クライアントに提出するための、丁寧で分かりやすい修繕提案レポートを作成することです。以下の写真（ファイル名と共に提示）を一枚ずつ詳細に確認し、修繕や交換が必要と思われる箇所をすべて特定してください。特定した各箇所について、以下のJSON形式で報告書を作成してください。
 **最重要**: あなたの出力は、純粋なJSON文字列のみでなければなりません。説明文や ```json ... ``` のようなマークダウンは絶対に含めないでください。
-**JSONの構造**: 出力は、JSONオブジェクトのリスト形式 `[ ... ]` としてください。各オブジェクトは1枚の写真に対応します。
+
+**JSONの構造**:
+出力は、JSONオブジェクトのリスト形式 `[ ... ]` としてください。各オブジェクトは1枚の写真に対応します。
+
 各写真オブジェクトには、以下のキーを含めてください。
 - "file_name": (string) 分析対象の写真のファイル名。
 - "findings": (array) その写真から見つかった指摘事項のリスト。指摘がない場合は空のリスト `[]` としてください。
+- "observation": (string) 【重要】"findings"が空の場合にのみ、写真から読み取れる客観的な情報を記述してください（例：「TOTO製トイレ、型番TCF8GM23。目立った傷や汚れなし。」）。"findings"がある場合は空文字列 `""` としてください。
+
 "findings" 配列の各指摘事項オブジェクトには、以下のキーを含めてください。
 - "location": (string) 指摘箇所の具体的な場所。
 - "current_state": (string) 現状の客観的な説明。
@@ -171,10 +176,10 @@ def display_report(report_data, uploaded_files_dict, report_title, survey_date):
     for i, report_item in enumerate(report_data):
         file_name = report_item.get("file_name")
         findings = report_item.get("findings", [])
+        observation = report_item.get("observation", "")
         image_file = uploaded_files_dict.get(file_name)
         if not image_file: continue
 
-        # ★タイトル・写真・テキストを一つのグループとして囲む
         st.markdown(f'<div class="photo-section">', unsafe_allow_html=True)
         
         st.markdown(f"<h3>{i + 1}. 写真ファイル: {file_name}</h3>", unsafe_allow_html=True)
@@ -182,11 +187,16 @@ def display_report(report_data, uploaded_files_dict, report_title, survey_date):
         with col1:
             st.image(image_file, use_container_width=True)
         with col2:
-            if not findings:
-                st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
-            else:
+            if findings:
+                # 指摘事項がある場合の表示
                 for finding in findings:
                     display_report_content(finding)
+            elif observation:
+                # 指摘事項はないが、所見がある場合の表示
+                st.info(f"**【AIによる所見】**\n\n{observation}")
+            else:
+                # 指摘事項も所見もない場合のフォールバック表示
+                st.success("✅ 特に修繕が必要な箇所は見つかりませんでした。")
         
         st.markdown(f'</div>', unsafe_allow_html=True)
     
@@ -198,7 +208,6 @@ def display_report(report_data, uploaded_files_dict, report_title, survey_date):
 def main():
     inject_custom_css()
     
-    # --- 1. UI入力部分（印刷時には非表示） ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
     st.title("📷 AIリフォーム箇所分析＆報告書作成")
     st.markdown("現場写真をアップロードすると、AIがクライアント向けの修繕提案レポートを自動作成します。")
@@ -241,7 +250,6 @@ def main():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 2. レポート表示部分 ---
     if 'report_data' in st.session_state:
         st.markdown('<div class="no-print">', unsafe_allow_html=True)
         st.info("💡 レポートをPDFとして保存するには、ブラウザの印刷機能（Ctrl+P または Cmd+P）を使い、「送信先」で「PDFとして保存」を選択してください。")
