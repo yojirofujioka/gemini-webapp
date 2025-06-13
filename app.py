@@ -1209,13 +1209,11 @@ def main():
         key="submit_button"
     )
 
-    if submitted and not st.session_state.processing:
+    if submitted and not st.session_state.processing and uploaded_files:
         # 処理開始前に即座にprocessingフラグを設定
         st.session_state.processing = True
-        st.rerun()  # 画面を更新してボタンを無効化
         
-    # 処理中の場合、実際の処理を実行
-    if st.session_state.processing and uploaded_files:
+        # すぐに処理を開始（rerunnを使わない）
         ui_placeholder = st.empty()
         with ui_placeholder.container():
             total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
