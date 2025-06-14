@@ -59,10 +59,14 @@ def inject_custom_css():
         /* ========== 1. 基本設定とレイアウト ========== */
         .block-container { padding: 1rem !important; }
 
-        /* タイトルの切れを防止 */
+        /* ★★★ 修正点: タイトルの切れを防止 ★★★ */
         h1 {
-            padding-top: 1rem !important;
+            font-size: 2.1rem !important;
+            padding-top: 0.8rem !important;
             margin-top: 0 !important;
+        }
+        h2, h3 {
+            font-size: 1.4rem !important;
         }
         
         /* カードの基本スタイル */
@@ -93,38 +97,17 @@ def inject_custom_css():
 
         /* ========== 2. ライトモードの配色 ========== */
         :root {
-            --card-bg-color: #ffffff;
-            --card-border-color: #e5e7eb;
             --text-color-primary: #111827;
             --text-color-secondary: #374151;
-            --finding-high-bg: #fef2f2;
-            --finding-high-border: #ef4444;
-            --finding-medium-bg: #fff7ed;
-            --finding-medium-border: #f97316;
-            --finding-low-bg: #eff6ff;
-            --finding-low-border: #3b82f6;
-            --observation-bg: #f0fdf4;
-            --observation-border: #22c55e;
         }
         .finding-card, .observation-box { color: var(--text-color-secondary); }
         .finding-location, .finding-details strong { color: var(--text-color-primary); }
 
         /* ========== 3. ダークモードの配色（強制上書き） ========== */
-        body[data-theme="dark"] {
-            --card-bg-color: #1f2937;
-            --card-border-color: #374151;
-            --finding-high-bg: #450a0a;
-            --finding-high-border: #ef4444;
-            --finding-medium-bg: #4a2c0d;
-            --finding-medium-border: #f97316;
-            --finding-low-bg: #1e3a8a;
-            --finding-low-border: #3b82f6;
-            --observation-bg: #064e3b;
-            --observation-border: #22c55e;
-        }
         body[data-theme="dark"] .finding-card,
-        body[data-theme="dark"] .observation-box {
-             color: #d1d5db !important;
+        body[data-theme="dark"] .observation-box,
+        body[data-theme="dark"] .finding-details p {
+             color: #e5e5e5 !important;
         }
         body[data-theme="dark"] .finding-location,
         body[data-theme="dark"] .finding-details strong,
@@ -132,10 +115,10 @@ def inject_custom_css():
             color: #ffffff !important;
         }
         
-        /* ========== 4. 印刷（PDF化）用スタイル ========== */
+        /* ========== ★★★ 修正点: 印刷（PDF化）用スタイル ★★★ ========== */
         @media print {
             /* 印刷時に不要な要素を非表示 */
-            header[data-testid="stHeader"], .stButton, .st-emotion-cache-1vzeuhh {
+            header[data-testid="stHeader"], .stButton, [data-testid="stExpander"] {
                 display: none !important;
             }
             /* 全ての要素の背景を強制的に描画 */
@@ -143,12 +126,17 @@ def inject_custom_css():
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+            /* コンテナの高さを自動に設定し、内容が切れないようにする */
+            body, .main, section, [data-testid="stAppViewContainer"], [data-testid="stVerticalBlock"] {
+                height: auto !important;
+                overflow: visible !important;
+            }
             /* カードがページで分割されないようにする */
-            .card {
-                page-break-inside: avoid;
+            .card, [data-testid="stVerticalBlock"] > [data-testid="element-container"] {
+                page-break-inside: avoid !important;
             }
             h1, h2, h3, h4, h5, h6 {
-                page-break-after: avoid;
+                page-break-after: avoid !important;
             }
         }
     </style>
@@ -229,16 +217,17 @@ def display_report(report_payload, files_dict):
     
     with st.expander("PDF保存・共有の方法", expanded=False):
         st.info("""
+        **【重要】**
         1. **レポート全体を読み込むため、一度ページの一番下までスクロールしてください。**
         2. スマートフォンのブラウザメニュー（「...」や「↑」など）から「印刷」を選択します。
-        3. プレビューが全ページ表示されていることを確認し、「共有」や「PDFとして保存」を実行してください。
+        3. プレビューが**全ページ**表示されていることを確認し、「共有」や「PDFとして保存」を実行してください。
         """)
 
     report_data = report_payload.get('report_data', [])
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
-    with st.container():
+    with st.container(border=True):
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.subheader("分析サマリー")
         col1, col2, col3 = st.columns(3)
@@ -249,7 +238,7 @@ def display_report(report_payload, files_dict):
 
     st.subheader("詳細分析結果")
     for i, item in enumerate(report_data):
-        with st.container():
+        with st.container(border=True):
             st.markdown('<div class="card">', unsafe_allow_html=True)
             if files_dict and item.get('file_name') in files_dict:
                 st.image(files_dict[item['file_name']], caption=f"{i + 1}. {item['file_name']}", use_container_width=True)
