@@ -15,7 +15,7 @@ import base64
 # 1. 設定と定数
 # ----------------------------------------------------------------------
 st.set_page_config(
-    page_title="現場分析レポート",
+    page_title="現場監督用 現場分析レポート",
     page_icon="▪",
     layout="wide",
     initial_sidebar_state="collapsed"  # サイドバーを最初から非表示
@@ -751,453 +751,49 @@ def initialize_vertexai():
         return None
 
 # ----------------------------------------------------------------------
-# 3. 交換部材データベースと新人向けアドバイス
-# ----------------------------------------------------------------------
-def get_parts_database():
-    """交換部材の代表的なメーカー・シリーズ・品番・定価情報"""
-    return {
-        # 電気設備
-        "分電盤": {
-            "メーカー": "Panasonic",
-            "シリーズ": "コスモパネル",
-            "品番": "BQR8162",
-            "定価": "8,500円"
-        },
-        "分電盤カバー": {
-            "メーカー": "Panasonic",
-            "シリーズ": "コスモパネル",
-            "品番": "BQR8162",
-            "定価": "8,500円"
-        },
-        "ブレーカー": {
-            "メーカー": "Panasonic",
-            "シリーズ": "安全ブレーカ",
-            "品番": "BS2022",
-            "定価": "2,800円"
-        },
-        "コンセント": {
-            "メーカー": "Panasonic",
-            "シリーズ": "コスモシリーズワイド21",
-            "品番": "WTP1532WKP",
-            "定価": "1,200円"
-        },
-        "スイッチ": {
-            "メーカー": "Panasonic",
-            "シリーズ": "コスモシリーズワイド21",
-            "品番": "WTP50011WP",
-            "定価": "980円"
-        },
-        "照明器具": {
-            "メーカー": "Panasonic",
-            "シリーズ": "LEDシーリングライト",
-            "品番": "LGC31120",
-            "定価": "12,800円"
-        },
-        "LED照明": {
-            "メーカー": "Panasonic",
-            "シリーズ": "LEDシーリングライト",
-            "品番": "LGC31120",
-            "定価": "12,800円"
-        },
-        
-        # 水回り設備
-        "トイレ": {
-            "メーカー": "TOTO",
-            "シリーズ": "ピュアレストQR",
-            "品番": "CS232B+SH233BA",
-            "定価": "98,000円"
-        },
-        "便器": {
-            "メーカー": "TOTO",
-            "シリーズ": "ピュアレストQR",
-            "品番": "CS232B",
-            "定価": "58,000円"
-        },
-        "便座": {
-            "メーカー": "TOTO",
-            "シリーズ": "ウォシュレット",
-            "品番": "TCF8GM23",
-            "定価": "45,000円"
-        },
-        "ウォシュレット": {
-            "メーカー": "TOTO",
-            "シリーズ": "ウォシュレット",
-            "品番": "TCF8GM23",
-            "定価": "45,000円"
-        },
-        "洗面台": {
-            "メーカー": "LIXIL",
-            "シリーズ": "ピアラ",
-            "品番": "AR3N-755SY",
-            "定価": "78,000円"
-        },
-        "洗面器": {
-            "メーカー": "LIXIL",
-            "シリーズ": "ピアラ",
-            "品番": "L-555ANC",
-            "定価": "28,000円"
-        },
-        "水栓": {
-            "メーカー": "TOTO",
-            "シリーズ": "シングルレバー混合栓",
-            "品番": "TKS05301J",
-            "定価": "19,800円"
-        },
-        "蛇口": {
-            "メーカー": "TOTO",
-            "シリーズ": "シングルレバー混合栓",
-            "品番": "TKS05301J",
-            "定価": "19,800円"
-        },
-        "キッチン水栓": {
-            "メーカー": "TOTO",
-            "シリーズ": "GGシリーズ",
-            "品番": "TKS05301J",
-            "定価": "24,800円"
-        },
-        "シャワーヘッド": {
-            "メーカー": "TOTO",
-            "シリーズ": "エアインシャワー",
-            "品番": "THC7C",
-            "定価": "8,500円"
-        },
-        "シャワーホース": {
-            "メーカー": "TOTO",
-            "シリーズ": "メタルホース",
-            "品番": "THY478ELLR",
-            "定価": "4,200円"
-        },
-        
-        # 建具・内装
-        "ドア": {
-            "メーカー": "Panasonic",
-            "シリーズ": "ベリティス",
-            "品番": "XMJE1PC◇N01R7△",
-            "定価": "48,000円"
-        },
-        "室内ドア": {
-            "メーカー": "Panasonic",
-            "シリーズ": "ベリティス",
-            "品番": "XMJE1PC◇N01R7△",
-            "定価": "48,000円"
-        },
-        "ドアノブ": {
-            "メーカー": "GOAL",
-            "シリーズ": "レバーハンドル",
-            "品番": "LX-5",
-            "定価": "12,000円"
-        },
-        "ドアクローザー": {
-            "メーカー": "RYOBI",
-            "シリーズ": "取替用ドアクローザー",
-            "品番": "S-202P",
-            "定価": "8,500円"
-        },
-        "床材": {
-            "メーカー": "東リ",
-            "シリーズ": "CFシート",
-            "品番": "CF9435",
-            "定価": "3,800円/㎡"
-        },
-        "フローリング": {
-            "メーカー": "Panasonic",
-            "シリーズ": "ベリティスフロアーS",
-            "品番": "KESWV3SY",
-            "定価": "8,200円/㎡"
-        },
-        "クロス": {
-            "メーカー": "サンゲツ",
-            "シリーズ": "SP",
-            "品番": "SP2801",
-            "定価": "1,200円/㎡"
-        },
-        "壁紙": {
-            "メーカー": "サンゲツ",
-            "シリーズ": "SP",
-            "品番": "SP2801",
-            "定価": "1,200円/㎡"
-        },
-        
-        # 空調・換気
-        "エアコン": {
-            "メーカー": "ダイキン",
-            "シリーズ": "Eシリーズ",
-            "品番": "AN22ZES-W",
-            "定価": "78,000円"
-        },
-        "換気扇": {
-            "メーカー": "Panasonic",
-            "シリーズ": "天井埋込形換気扇",
-            "品番": "FY-24CPG8",
-            "定価": "15,800円"
-        },
-        "レンジフード": {
-            "メーカー": "Panasonic",
-            "シリーズ": "スマートスクエアフード",
-            "品番": "FY-6HZC4-S",
-            "定価": "98,000円"
-        },
-        
-        # その他
-        "給湯器": {
-            "メーカー": "リンナイ",
-            "シリーズ": "エコジョーズ",
-            "品番": "RUF-E2406SAW",
-            "定価": "298,000円"
-        },
-        "インターホン": {
-            "メーカー": "Panasonic",
-            "シリーズ": "どこでもドアホン",
-            "品番": "VL-SWH705KL",
-            "定価": "58,000円"
-        },
-        "火災報知器": {
-            "メーカー": "Panasonic",
-            "シリーズ": "けむり当番",
-            "品番": "SHK48455",
-            "定価": "3,800円"
-        }
-    }
-
-def get_contractor_advice():
-    """新人現場監督向けアドバイスデータベース"""
-    return {
-        # 電気設備
-        "分電盤": {
-            "注意点": "必ず電気工事士の有資格者が作業すること。停電作業が必要。",
-            "交換手順": [
-                "1. 事前に停電の告知・調整",
-                "2. 主幹ブレーカーをOFF",
-                "3. 既存分電盤の配線をマーキング",
-                "4. 新規分電盤へ配線を移設",
-                "5. 絶縁抵抗測定・動作確認"
-            ],
-            "必要な職人": ["電気工事士"],
-            "依頼先": ["電気工事会社"],
-            "費用目安": {
-                "作業費": "30,000円～50,000円",
-                "材料費": "本体価格＋20%（配線材料等）"
-            },
-            "材料費提案": [
-                {"品名": "分電盤本体", "参考価格": "8,500円"},
-                {"品名": "配線材料一式", "参考価格": "3,000円"},
-                {"品名": "その他部材", "参考価格": "2,000円"}
-            ]
-        },
-        "コンセント": {
-            "注意点": "電気工事士の資格が必要。配線の劣化も確認すること。",
-            "交換手順": [
-                "1. ブレーカーをOFF",
-                "2. 既存コンセントを取り外し",
-                "3. 配線の状態確認",
-                "4. 新規コンセント取付",
-                "5. 絶縁確認・動作テスト"
-            ],
-            "必要な職人": ["電気工事士"],
-            "依頼先": ["電気工事会社", "電気設備会社"],
-            "費用目安": {
-                "作業費": "3,000円～5,000円/箇所",
-                "材料費": "1,200円～2,000円/箇所"
-            },
-            "材料費提案": [
-                {"品名": "コンセント本体", "参考価格": "1,200円"},
-                {"品名": "プレート", "参考価格": "300円"}
-            ]
-        },
-        
-        # 水回り設備
-        "トイレ": {
-            "注意点": "既存の排水芯を確認。止水栓を必ず閉める。床の防水処理も確認。",
-            "交換手順": [
-                "1. 止水栓を閉める",
-                "2. 既存便器の水を抜く",
-                "3. 便器・タンクを取り外し",
-                "4. 排水ソケット確認・清掃",
-                "5. 新規便器設置・配管接続",
-                "6. 水漏れ確認"
-            ],
-            "必要な職人": ["設備工事士", "水道工事士"],
-            "依頼先": ["水道工事会社", "リフォーム会社"],
-            "費用目安": {
-                "作業費": "30,000円～50,000円",
-                "材料費": "便器本体価格＋配管部材"
-            },
-            "材料費提案": [
-                {"品名": "便器・タンクセット", "参考価格": "98,000円"},
-                {"品名": "給水管", "参考価格": "2,000円"},
-                {"品名": "パッキン類", "参考価格": "1,500円"}
-            ]
-        },
-        "水栓": {
-            "注意点": "止水栓の位置を事前確認。パッキンの予備を準備。",
-            "交換手順": [
-                "1. 止水栓を閉める",
-                "2. 既存水栓を取り外し",
-                "3. 配管接続部の清掃",
-                "4. 新規水栓取付",
-                "5. 水漏れ確認・流量調整"
-            ],
-            "必要な職人": ["水道工事士", "設備工事士"],
-            "依頼先": ["水道工事会社", "設備工事会社"],
-            "費用目安": {
-                "作業費": "8,000円～15,000円",
-                "材料費": "本体価格＋接続部材"
-            },
-            "材料費提案": [
-                {"品名": "水栓本体", "参考価格": "19,800円"},
-                {"品名": "フレキホース", "参考価格": "1,500円"},
-                {"品名": "シールテープ", "参考価格": "300円"}
-            ]
-        },
-        
-        # 建具・内装
-        "ドア": {
-            "注意点": "開き勝手の確認。枠の水平・垂直を正確に。",
-            "交換手順": [
-                "1. 既存ドアの採寸",
-                "2. 丁番・ラッチの位置確認",
-                "3. 既存ドア撤去",
-                "4. 新規ドア吊り込み",
-                "5. 建付け調整"
-            ],
-            "必要な職人": ["建具工", "大工"],
-            "依頼先": ["建具店", "リフォーム会社"],
-            "費用目安": {
-                "作業費": "15,000円～25,000円",
-                "材料費": "ドア本体価格"
-            },
-            "材料費提案": [
-                {"品名": "室内ドア本体", "参考価格": "48,000円"},
-                {"品名": "丁番", "参考価格": "2,000円"},
-                {"品名": "ドアノブ", "参考価格": "8,000円"}
-            ]
-        },
-        "クロス": {
-            "注意点": "下地の状態確認が重要。パテ処理を丁寧に。",
-            "交換手順": [
-                "1. 既存クロス剥がし",
-                "2. 下地処理・パテ埋め",
-                "3. プライマー塗布",
-                "4. 新規クロス貼り",
-                "5. エア抜き・仕上げ"
-            ],
-            "必要な職人": ["クロス工", "内装工"],
-            "依頼先": ["内装工事会社", "リフォーム会社"],
-            "費用目安": {
-                "作業費": "1,000円～1,500円/㎡",
-                "材料費": "1,200円～2,000円/㎡"
-            },
-            "材料費提案": [
-                {"品名": "クロス材", "参考価格": "1,200円/㎡"},
-                {"品名": "接着剤", "参考価格": "300円/㎡"},
-                {"品名": "下地材", "参考価格": "200円/㎡"}
-            ]
-        },
-        
-        # 空調・換気
-        "エアコン": {
-            "注意点": "電源容量の確認。冷媒ガスの適正処理。",
-            "交換手順": [
-                "1. 冷媒ガス回収",
-                "2. 室内機・室外機撤去",
-                "3. 配管洗浄・確認",
-                "4. 新規機器設置",
-                "5. 真空引き・試運転"
-            ],
-            "必要な職人": ["空調設備工", "電気工事士"],
-            "依頼先": ["空調設備会社", "電器店"],
-            "費用目安": {
-                "作業費": "15,000円～30,000円",
-                "材料費": "本体価格＋配管材料"
-            },
-            "材料費提案": [
-                {"品名": "エアコン本体", "参考価格": "78,000円"},
-                {"品名": "配管材料", "参考価格": "5,000円"},
-                {"品名": "ドレンホース", "参考価格": "1,000円"}
-            ]
-        }
-    }
-
-def extract_required_parts(suggested_work):
-    """提案工事内容から必要な部材を抽出"""
-    parts_db = get_parts_database()
-    required_parts = []
-    
-    # 部材名をチェック
-    for part_name in parts_db.keys():
-        if part_name in suggested_work:
-            required_parts.append(part_name)
-    
-    return required_parts
-
-def generate_parts_info_html(parts_list):
-    """部材情報のHTML生成"""
-    if not parts_list:
-        return ""
-    
-    parts_db = get_parts_database()
-    html = '<div class="parts-info-box">'
-    html += '<div class="parts-info-title">【交換部材情報】</div>'
-    
-    for part in parts_list:
-        if part in parts_db:
-            info = parts_db[part]
-            html += f'''
-            <div style="margin-bottom: 0.5rem;">
-                <strong>{part}</strong><br>
-                メーカー: {info['メーカー']} / シリーズ: {info['シリーズ']}<br>
-                品番: {info['品番']} / 定価: {info['定価']}
-            </div>
-            '''
-    
-    html += '</div>'
-    return html
-
-def generate_advice_html(parts_list):
-    """新人向けアドバイスのHTML生成"""
-    if not parts_list:
-        return ""
-    
-    advice_db = get_contractor_advice()
-    html = '<div class="advice-box">'
-    html += '<div class="advice-title">【新人現場監督向けアドバイス】</div>'
-    
-    for part in parts_list:
-        if part in advice_db:
-            advice = advice_db[part]
-            html += f'''
-            <div style="margin-bottom: 0.5rem;">
-                <strong>{part}の交換</strong><br>
-                ⚠️ 注意点: {advice['注意点']}<br>
-                👷 必要な職人: {', '.join(advice['必要な職人'])}<br>
-                📞 依頼先: {', '.join(advice['依頼先'])}<br>
-                💰 費用目安: 作業費 {advice['費用目安']['作業費']}
-            </div>
-            '''
-    
-    html += '</div>'
-    return html
-
-# ----------------------------------------------------------------------
-# 4. AIとデータ処理の関数
+# 3. AIとデータ処理の関数
 # ----------------------------------------------------------------------
 def create_report_prompt(filenames):
     file_list_str = "\n".join([f"- {name}" for name in filenames])
     return f"""
-    あなたは、日本のリフォーム・原状回復工事を専門とする、経験豊富な現場監督です。あなたの仕事は、提供された現場写真を分析し、クライアントに提出するための、丁寧で分かりやすい修繕提案レポートを作成することです。以下の写真（ファイル名と共に提示）を一枚ずつ詳細に確認し、修繕や交換が必要と思われる箇所をすべて特定してください。特定した各箇所について、以下のJSON形式で報告書を作成してください。
+    あなたは、日本のリフォーム・原状回復工事を専門とする、経験豊富な現場監督です。あなたの仕事は、提供された現場写真を分析し、クライアントに提出するための、丁寧で分かりやすい修繕提案レポートを作成することです。以下の写真（ファイル名と共に提示）を一枚ずつ詳細に確認し、修繕や交換が必要と思われる箇所をすべて特定してください。
+    
     **最重要**: あなたの出力は、純粋なJSON文字列のみでなければなりません。説明文や ```json ... ``` のようなマークダウンは絶対に含めないでください。
+    
     **JSONの構造**:
     出力は、JSONオブジェクトのリスト形式 `[ ... ]` としてください。各オブジェクトは1枚の写真に対応します。
+    
     各写真オブジェクトには、以下のキーを含めてください。
     - "file_name": (string) 分析対象の写真のファイル名。
     - "findings": (array) その写真から見つかった指摘事項のリスト。指摘がない場合は空のリスト `[]` としてください。
     - "observation": (string) 【重要】"findings"が空の場合にのみ、写真から読み取れる客観的な情報を記述してください（例：「TOTO製トイレ、型番TCF8GM23。目立った傷や汚れなし。」）。"findings"がある場合は空文字列 `""` としてください。
+    
     "findings" 配列の各指摘事項オブジェクトには、以下のキーを含めてください。
     - "location": (string) 指摘箇所の具体的な場所。
     - "current_state": (string) 現状の客観的な説明。
     - "suggested_work": (string) 提案する工事内容。具体的な部材名（トイレ、水栓、クロス、エアコン等）を含めること。
     - "priority": (string) 工事の緊急度を「高」「中」「低」の3段階で評価。
     - "notes": (string) クライアントへの補足事項。
+    - "parts_info": (object) 交換が必要な部材の情報。以下のキーを含めてください：
+      - "part_name": (string) 部材名
+      - "manufacturer": (string) 推奨メーカー
+      - "series": (string) シリーズ名
+      - "model_number": (string) 品番
+      - "list_price": (string) 定価（概算）
+    - "contractor_advice": (object) 新人現場監督向けアドバイス。以下のキーを含めてください：
+      - "caution": (string) 工事時の注意点
+      - "required_workers": (array) 必要な職人のリスト（例：["電気工事士", "水道工事士"]）
+      - "contractors": (array) 依頼先のリスト（例：["電気工事会社", "設備工事会社"]）
+      - "cost_estimate": (object) 費用目安
+        - "labor_cost": (string) 作業費の目安
+        - "material_cost": (string) 材料費の目安
+    
+    **重要な指示**:
+    1. 実際の修繕工事を想定し、現実的な部材情報を提供してください。
+    2. メーカー名、品番は実在するものを使用してください（TOTO、LIXIL、Panasonic等）。
+    3. 定価は日本円で、現実的な価格を記載してください。
+    4. 新人向けアドバイスは具体的で実用的な内容にしてください。
+    
     ---
     分析対象のファイルリスト: {file_list_str}
     ---
@@ -1220,7 +816,7 @@ def parse_json_response(text):
         return None
 
 # ----------------------------------------------------------------------
-# 5. レポート表示の関数
+# 4. レポート表示の関数
 # ----------------------------------------------------------------------
 def optimize_image_for_display(file_obj, max_width=800):
     """画像を最適化してbase64エンコード"""
@@ -1284,11 +880,45 @@ def create_photo_row_html(index, item, img_base64=None):
             
             content_html += '</div></div>'
             
-            # 部材情報とアドバイスを追加
-            required_parts = extract_required_parts(suggested_work)
-            if required_parts:
-                content_html += generate_parts_info_html(required_parts)
-                content_html += generate_advice_html(required_parts)
+            # 部材情報の追加
+            if 'parts_info' in finding and finding['parts_info']:
+                parts = finding['parts_info']
+                parts_html = f'''
+                <div class="parts-info-box">
+                    <div class="parts-info-title">【交換部材情報】</div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>{html.escape(str(parts.get('part_name', '')))}</strong><br>
+                        メーカー: {html.escape(str(parts.get('manufacturer', '')))} / シリーズ: {html.escape(str(parts.get('series', '')))}<br>
+                        品番: {html.escape(str(parts.get('model_number', '')))} / 定価: {html.escape(str(parts.get('list_price', '')))}
+                    </div>
+                </div>
+                '''
+                content_html += parts_html
+            
+            # 新人向けアドバイスの追加
+            if 'contractor_advice' in finding and finding['contractor_advice']:
+                advice = finding['contractor_advice']
+                advice_html = f'''
+                <div class="advice-box">
+                    <div class="advice-title">【新人現場監督向けアドバイス】</div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>{html.escape(str(parts.get('part_name', '部材')))}の交換</strong><br>
+                        ⚠️ 注意点: {html.escape(str(advice.get('caution', '')))}<br>
+                        👷 必要な職人: {html.escape(', '.join(advice.get('required_workers', [])))}<br>
+                        📞 依頼先: {html.escape(', '.join(advice.get('contractors', [])))}<br>
+                '''
+                
+                if 'cost_estimate' in advice:
+                    cost = advice['cost_estimate']
+                    advice_html += f'''
+                        💰 費用目安: 作業費 {html.escape(str(cost.get('labor_cost', '')))} / 材料費 {html.escape(str(cost.get('material_cost', '')))}
+                    '''
+                
+                advice_html += '''
+                    </div>
+                </div>
+                '''
+                content_html += advice_html
     
     elif item.get("observation"):
         observation = html.escape(str(item.get('observation', '')))
@@ -1320,7 +950,7 @@ def display_editable_report(report_payload, files_dict):
     
     # ヘッダー
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
-    st.title("現場分析レポート")
+    st.title("現場監督用 現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"**物件名:** {report_title or '（未設定）'}")
@@ -1446,10 +1076,23 @@ def display_editable_report(report_payload, files_dict):
                             )
                             
                             # 部材情報とアドバイスの表示（編集モードでも表示）
-                            required_parts = extract_required_parts(new_suggested_work)
-                            if required_parts:
-                                st.markdown(generate_parts_info_html(required_parts), unsafe_allow_html=True)
-                                st.markdown(generate_advice_html(required_parts), unsafe_allow_html=True)
+                            if 'parts_info' in finding and finding['parts_info']:
+                                parts = finding['parts_info']
+                                st.info(f"**交換部材情報**\n\n"
+                                       f"部材名: {parts.get('part_name', '')}\n"
+                                       f"メーカー: {parts.get('manufacturer', '')} / シリーズ: {parts.get('series', '')}\n"
+                                       f"品番: {parts.get('model_number', '')} / 定価: {parts.get('list_price', '')}")
+                            
+                            if 'contractor_advice' in finding and finding['contractor_advice']:
+                                advice = finding['contractor_advice']
+                                advice_text = f"**新人現場監督向けアドバイス**\n\n"
+                                advice_text += f"⚠️ 注意点: {advice.get('caution', '')}\n"
+                                advice_text += f"👷 必要な職人: {', '.join(advice.get('required_workers', []))}\n"
+                                advice_text += f"📞 依頼先: {', '.join(advice.get('contractors', []))}\n"
+                                if 'cost_estimate' in advice:
+                                    cost = advice['cost_estimate']
+                                    advice_text += f"💰 費用目安: 作業費 {cost.get('labor_cost', '')} / 材料費 {cost.get('material_cost', '')}"
+                                st.warning(advice_text)
                             
                             # 削除ボタン
                             if st.button(f"この指摘事項を削除", key=f"delete_{i}_{j}"):
@@ -1525,7 +1168,7 @@ def display_full_report(report_payload, files_dict):
     
     # ヘッダー
     st.markdown('<div class="report-header">', unsafe_allow_html=True)
-    st.title("現場分析レポート")
+    st.title("現場監督用 現場分析レポート")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"**物件名:** {report_title or '（未設定）'}")
@@ -1594,7 +1237,7 @@ def display_full_report(report_payload, files_dict):
     status_text.empty()
 
 # ----------------------------------------------------------------------
-# 6. メインアプリケーション
+# 5. メインアプリケーション
 # ----------------------------------------------------------------------
 def main():
     # CSSを最初に注入して全体のスタイルを設定（認証画面でも適用）
@@ -1657,7 +1300,7 @@ def main():
         return
 
     # --- 状態2: 初期画面（入力フォーム） ---
-    st.title("現場写真分析・報告書作成システム")
+    st.title("現場監督用 現場写真分析・報告書作成システム")
     st.markdown("現場写真をアップロードすると、修繕提案レポートを自動作成します。")
 
     if not model:
