@@ -56,9 +56,10 @@ def inject_custom_css():
     st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* ========== ★★★ 修正点: タイトルの切れを防止 ★★★ ========== */
+        /* ========== ★★★ 修正点 1: タイトルの切れを防止 ★★★ ========== */
+        /* メインタイトルに十分な上の余白を追加 */
         h1 {
-            padding-top: 0.5em;
+            padding-top: 1rem !important;
         }
 
         /* ========== 基本スタイル (ライトモード) ========== */
@@ -81,8 +82,6 @@ def inject_custom_css():
         body[data-theme="dark"] {
             --card-bg-color: #1f2937;
             --card-border-color: #374151;
-            --text-color-primary: #f9fafb;
-            --text-color-secondary: #d1d5db;
             --finding-high-bg: #450a0a;
             --finding-high-border: #ef4444;
             --finding-medium-bg: #4a2c0d;
@@ -92,7 +91,20 @@ def inject_custom_css():
             --observation-bg: #064e3b;
             --observation-border: #22c55e;
         }
-
+        
+        /* ========== ★★★ 修正点 2: ダークモードの文字を見やすくする ★★★ ========== */
+        /* ダークモード時の分析結果テキストのデフォルト色を明るいグレーに設定 */
+        body[data-theme="dark"] .finding-card,
+        body[data-theme="dark"] .observation-box,
+        body[data-theme="dark"] .finding-details p {
+            color: #e5e5e5 !important;
+        }
+        /* ダークモード時の強調テキスト（場所、太字）を白に設定 */
+        body[data-theme="dark"] .finding-location,
+        body[data-theme="dark"] .finding-details strong {
+            color: #ffffff !important;
+        }
+        
         /* ========== 共通スタイル ========== */
         .block-container { padding: 1rem 1rem 3rem 1rem !important; }
         .card {
@@ -101,7 +113,6 @@ def inject_custom_css():
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
         .stImage img { border-radius: 8px; }
         .finding-card, .observation-box {
@@ -118,8 +129,8 @@ def inject_custom_css():
         .finding-location {
             font-weight: bold;
             font-size: 1.1em;
-            color: var(--text-color-primary);
             margin-bottom: 8px;
+            color: var(--text-color-primary);
         }
         .finding-details p {
             margin-bottom: 4px;
@@ -127,16 +138,6 @@ def inject_custom_css():
             color: var(--text-color-secondary);
         }
         .finding-details strong { color: var(--text-color-primary); }
-
-        /* ========== ★★★ 修正点: ダークモードの文字を見やすくする ★★★ ========== */
-        body[data-theme="dark"] .finding-location,
-        body[data-theme="dark"] .observation-box,
-        body[data-theme="dark"] .finding-details strong {
-            color: #f9fafb; /* 白に近い色 */
-        }
-        body[data-theme="dark"] .finding-details p {
-            color: #d1d5db; /* 明るいグレー */
-        }
 
     </style>
     """, unsafe_allow_html=True)
@@ -270,7 +271,7 @@ def main():
         display_report(st.session_state.report_payload, st.session_state.files_dict)
         if st.button("✨ 新しいレポートを作成する"):
             for key in list(st.session_state.keys()):
-                if key != 'password_correct': # パスワード認証情報は残す
+                if key != 'password_correct':
                     del st.session_state[key]
             st.rerun()
         return
