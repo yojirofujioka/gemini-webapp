@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-BATCH_SIZE = 5  # モバイル環境を考慮し、一度に処理する枚数を調整
+BATCH_SIZE = 5
 
 # セッション状態（アプリの状態を保存する場所）の初期化
 if 'processing' not in st.session_state:
@@ -29,10 +29,6 @@ if 'report_payload' not in st.session_state:
     st.session_state.report_payload = None
 if 'files_dict' not in st.session_state:
     st.session_state.files_dict = None
-if 'edit_mode' not in st.session_state:
-    st.session_state.edit_mode = False
-if 'edited_report' not in st.session_state:
-    st.session_state.edited_report = None
 
 # ----------------------------------------------------------------------
 # 2. パスワード認証
@@ -50,8 +46,8 @@ def check_password():
         st.session_state.password_correct = False
 
     if not st.session_state.password_correct:
-        password = st.text_input("パスワードを入力してください", type="password")
-        if st.button("ログイン"):
+        password = st.text_input("パスワードを入力してください", type="password", key="password_input")
+        if st.button("ログイン", key="login_button"):
             if password == PASSWORD:
                 st.session_state.password_correct = True
                 st.rerun()
@@ -60,75 +56,90 @@ def check_password():
         st.stop()
     return True
 
-
 # ----------------------------------------------------------------------
-# 3. デザインとGCP初期化
+# 3. デザイン（CSS）
 # ----------------------------------------------------------------------
 def inject_custom_css():
-    """モバイル表示に最適化したカスタムCSS"""
+    """ライトモードとダークモード両対応のカスタムCSS"""
     st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* 全体の背景と文字色 */
-        .stApp {
-            background-color: #f0f2f6;
+        /* ========== 基本スタイル (ライトモード) ========== */
+        :root {
+            --card-bg-color: #ffffff;
+            --card-border-color: #e5e7eb;
+            --text-color-primary: #111827;
+            --text-color-secondary: #374151;
+            --finding-high-bg: #fef2f2;
+            --finding-high-border: #ef4444;
+            --finding-medium-bg: #fff7ed;
+            --finding-medium-border: #f97316;
+            --finding-low-bg: #eff6ff;
+            --finding-low-border: #3b82f6;
+            --observation-bg: #f0fdf4;
+            --observation-border: #22c55e;
         }
-        /* メインコンテンツエリアの余白調整 */
+
+        /* ========== ダークモード用の上書き ========== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --card-bg-color: #1f2937;
+                --card-border-color: #374151;
+                --text-color-primary: #f9fafb;
+                --text-color-secondary: #d1d5db;
+                --finding-high-bg: #450a0a;
+                --finding-high-border: #ef4444;
+                --finding-medium-bg: #4a2c0d;
+                --finding-medium-border: #f97316;
+                --finding-low-bg: #1e3a8a;
+                --finding-low-border: #3b82f6;
+                --observation-bg: #064e3b;
+                --observation-border: #22c55e;
+            }
+        }
+
+        /* ========== 共通スタイル ========== */
+        .stApp {
+            background-color: var(--background-color);
+        }
         .block-container {
             padding: 1rem 1rem 3rem 1rem !important;
         }
-        /* カードスタイルの基本 */
         .card {
-            background: #ffffff;
+            background-color: var(--card-bg-color);
+            border: 1px solid var(--card-border-color);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            border: 1px solid #e5e7eb;
         }
-        /* 写真のスタイル */
         .stImage img {
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        /* 指摘事項カードのスタイル */
-        .finding-card {
+        .finding-card, .observation-box {
             padding: 12px;
             border-radius: 8px;
             margin-top: 12px;
             border-left: 5px solid;
         }
-        .finding-high { border-color: #ef4444; background-color: #fef2f2; }
-        .finding-medium { border-color: #f97316; background-color: #fff7ed; }
-        .finding-low { border-color: #3b82f6; background-color: #eff6ff; }
+        .finding-high { background-color: var(--finding-high-bg); border-color: var(--finding-high-border); }
+        .finding-medium { background-color: var(--finding-medium-bg); border-color: var(--finding-medium-border); }
+        .finding-low { background-color: var(--finding-low-bg); border-color: var(--finding-low-border); }
+        .observation-box { background-color: var(--observation-bg); border-color: var(--observation-border); }
         
         .finding-location {
             font-weight: bold;
             font-size: 1.1em;
-            color: #1f2937;
+            color: var(--text-color-primary);
             margin-bottom: 8px;
         }
         .finding-details p {
             margin-bottom: 4px;
             line-height: 1.5;
-            color: #374151;
+            color: var(--text-color-secondary);
         }
         .finding-details strong {
-            color: #111827;
-        }
-        /* 所見・問題なしボックス */
-        .observation-box {
-            background-color: #f0fdf4;
-            border-left: 5px solid #22c55e;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 12px;
-        }
-        /* ボタンのスタイル */
-        .stButton button {
-            width: 100%;
-            border-radius: 8px;
-            font-weight: bold;
+            color: var(--text-color-primary);
         }
     </style>
     """, unsafe_allow_html=True)
@@ -188,7 +199,6 @@ def generate_ai_report(model, file_batch, prompt):
 
 def parse_json_response(text):
     """AIの応答からJSON部分を安全に抽出して解析"""
-    # ```json ... ``` や ``` ... ``` で囲まれている場合を考慮
     match = re.search(r'```(json)?\s*(.*?)\s*```', text, re.DOTALL)
     json_str = match.group(2) if match else text
     try:
@@ -211,52 +221,39 @@ def display_report(report_payload, files_dict):
     st.markdown(f"### {report_title}")
     st.caption(f"調査日: {survey_date}")
     
-    # --- サマリー表示 ---
     total_findings = sum(len(item.get("findings", [])) for item in report_data)
     high_priority_count = sum(1 for item in report_data for f in item.get("findings", []) if f.get("priority") == "高")
     
     st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("分析サマリー")
     col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("写真枚数", f"{len(report_data)}枚")
-    with col2:
-        st.metric("指摘件数", f"{total_findings}件")
-    with col3:
-        st.metric("緊急度「高」", f"{high_priority_count}件", delta=f"-{high_priority_count}" if high_priority_count > 0 else "0")
+    col1.metric("写真枚数", f"{len(report_data)}枚")
+    col2.metric("指摘件数", f"{total_findings}件")
+    col3.metric("緊急度「高」", f"{high_priority_count}件", delta=f"{high_priority_count}", delta_color="inverse")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 詳細分析結果 ---
     st.subheader("詳細分析結果")
     for i, item in enumerate(report_data):
         st.markdown(f'<div class="card">', unsafe_allow_html=True)
-        # 写真を表示
         if files_dict and item.get('file_name') in files_dict:
             st.image(files_dict[item['file_name']], caption=f"{i + 1}. {item['file_name']}", use_column_width=True)
         
-        # 指摘事項を表示
         findings = item.get("findings", [])
         if findings:
             for finding in findings:
                 priority = finding.get('priority', '中').lower()
                 location = finding.get('location', '場所未記載')
-                current_state = finding.get('current_state', '')
-                suggested_work = finding.get('suggested_work', '')
-                notes = finding.get('notes', '')
-
-                st.markdown(f'<div class="finding-card finding-{priority}">', unsafe_allow_html=True)
-                st.markdown(f'<div class="finding-location">{location} [緊急度: {priority.upper()}]</div>', unsafe_allow_html=True)
                 details_html = f"""
-                <div class="finding-details">
-                    <p><strong>現状:</strong> {html.escape(current_state)}</p>
-                    <p><strong>提案:</strong> {html.escape(suggested_work)}</p>
+                <div class="finding-card finding-{priority}">
+                    <div class="finding-location">{html.escape(location)} [緊急度: {priority.upper()}]</div>
+                    <div class="finding-details">
+                        <p><strong>現状:</strong> {html.escape(finding.get('current_state', ''))}</p>
+                        <p><strong>提案:</strong> {html.escape(finding.get('suggested_work', ''))}</p>
+                        {'<p><strong>備考:</strong> ' + html.escape(finding.get('notes', '')) + '</p>' if finding.get('notes') else ''}
+                    </div>
+                </div>
                 """
-                if notes:
-                    details_html += f'<p><strong>備考:</strong> {html.escape(notes)}</p>'
-                details_html += "</div>"
                 st.markdown(details_html, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 所見または問題なしの場合
         elif item.get("observation"):
             st.markdown(f'<div class="observation-box"><strong>所見:</strong> {html.escape(item["observation"])}</div>', unsafe_allow_html=True)
         else:
@@ -279,7 +276,6 @@ def main():
     if not model:
         st.stop()
 
-    # --- レポート表示画面 ---
     if st.session_state.report_payload:
         display_report(st.session_state.report_payload, st.session_state.files_dict)
         if st.button("✨ 新しいレポートを作成する"):
@@ -287,7 +283,6 @@ def main():
             st.rerun()
         return
 
-    # --- レポート作成（入力）画面 ---
     st.header("レポート作成")
     with st.form("report_form"):
         report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
@@ -299,55 +294,52 @@ def main():
             accept_multiple_files=True
         )
         
-        submitted = st.form_submit_button(
-            "分析を開始する",
-            type="primary",
-            disabled=st.session_state.processing
-        )
+        submitted = st.form_submit_button("分析を開始する", type="primary")
 
-    if submitted and not uploaded_files:
-        st.warning("写真をアップロードしてください。")
-
-    if submitted and uploaded_files:
-        st.session_state.processing = True
-        st.rerun() # UIを更新して処理中表示に切り替える
-
-    if st.session_state.processing:
-        st.info("AIによる分析を開始しました。写真の枚数に応じて数分かかることがあります。")
-        progress_bar = st.progress(0, text="準備中...")
-        final_report_data = []
-        try:
-            total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
-            for i in range(0, len(uploaded_files), BATCH_SIZE):
-                current_batch_num = (i // BATCH_SIZE) + 1
-                progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
-                progress_bar.progress(i / len(uploaded_files), text=progress_text)
-
-                file_batch = uploaded_files[i:i + BATCH_SIZE]
-                filenames = [f.name for f in file_batch]
-                prompt = create_report_prompt(filenames)
-                
-                response_text = generate_ai_report(model, file_batch, prompt)
-                batch_report_data = parse_json_response(response_text)
-                
-                if batch_report_data:
-                    final_report_data.extend(batch_report_data)
-                else:
-                    raise Exception("AIからの応答の解析に失敗しました。")
+    if submitted:
+        if not uploaded_files:
+            st.warning("写真をアップロードしてください。")
+        else:
+            # ★★★ ボタンロジック修正点 ★★★
+            # フォームの入力内容をすぐに処理する
+            st.session_state.processing = True
             
-            progress_bar.progress(1.0, text="分析完了！")
-            
-            st.session_state.files_dict = {f.name: f for f in uploaded_files}
-            st.session_state.report_payload = {
-                "title": report_title,
-                "date": survey_date.strftime('%Y年%m月%d日'),
-                "report_data": final_report_data
-            }
-        except Exception as e:
-            st.error(f"分析処理中にエラーが発生しました: {str(e)}")
-        finally:
-            st.session_state.processing = False
-            st.rerun()
+            with st.spinner("AIによる分析を開始しました。写真の枚数に応じて数分かかることがあります..."):
+                final_report_data = []
+                try:
+                    total_batches = math.ceil(len(uploaded_files) / BATCH_SIZE)
+                    progress_bar = st.progress(0, text="準備中...")
+                    for i in range(0, len(uploaded_files), BATCH_SIZE):
+                        current_batch_num = (i // BATCH_SIZE) + 1
+                        progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+                        progress_bar.progress((i + 1) / len(uploaded_files), text=progress_text)
+
+                        file_batch = uploaded_files[i:i + BATCH_SIZE]
+                        filenames = [f.name for f in file_batch]
+                        prompt = create_report_prompt(filenames)
+                        
+                        response_text = generate_ai_report(model, file_batch, prompt)
+                        batch_report_data = parse_json_response(response_text)
+                        
+                        if batch_report_data:
+                            final_report_data.extend(batch_report_data)
+                        else:
+                            raise Exception("AIからの応答の解析に失敗しました。")
+                    
+                    progress_bar.progress(1.0, text="分析完了！")
+                    
+                    st.session_state.files_dict = {f.name: f for f in uploaded_files}
+                    st.session_state.report_payload = {
+                        "title": report_title,
+                        "date": survey_date.strftime('%Y年%m月%d日'),
+                        "report_data": final_report_data
+                    }
+                    
+                except Exception as e:
+                    st.error(f"分析処理中にエラーが発生しました: {str(e)}")
+                finally:
+                    st.session_state.processing = False
+                    st.rerun()
 
 if __name__ == "__main__":
     main()
