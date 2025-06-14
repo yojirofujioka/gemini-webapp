@@ -177,8 +177,6 @@ def create_report_prompt(filenames):
 def generate_ai_report(model, file_batch, prompt):
     """画像とプロンプトをAIに送り、レポートを生成"""
     image_parts = [Part.from_data(f.getvalue(), mime_type=f.type) for f in file_batch]
-    # ★★★★★ 修正点 ★★★★★
-    # 互換性のない request_options を削除
     response = model.generate_content([prompt] + image_parts)
     return response.text
 
@@ -217,7 +215,9 @@ def display_report(report_payload, files_dict):
     for i, item in enumerate(report_data):
         with st.container(border=True):
             if files_dict and item.get('file_name') in files_dict:
-                st.image(files_dict[item['file_name']], caption=f"{i + 1}. {item['file_name']}", use_column_width=True)
+                # ★★★★★ 修正点 ★★★★★
+                # use_column_width を use_container_width に変更
+                st.image(files_dict[item['file_name']], caption=f"{i + 1}. {item['file_name']}", use_container_width=True)
             
             findings = item.get("findings", [])
             if findings:
@@ -259,7 +259,7 @@ def main():
         display_report(st.session_state.report_payload, st.session_state.files_dict)
         if st.button("✨ 新しいレポートを作成する"):
             # セッションをクリアして最初から
-            for key in st.session_state.keys():
+            for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
         return
@@ -289,9 +289,7 @@ def main():
                 
                 for i in range(0, len(uploaded_files), BATCH_SIZE):
                     current_batch_num = (i // BATCH_SIZE) + 1
-                    # 進捗バーのテキストを更新
                     progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
-                    # 進捗バーのパーセンテージを更新
                     progress_percentage = (i / len(uploaded_files))
                     progress_bar.progress(progress_percentage, text=progress_text)
                     
