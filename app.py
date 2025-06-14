@@ -56,6 +56,11 @@ def inject_custom_css():
     st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* ========== ★★★ 修正点: タイトルの切れを防止 ★★★ ========== */
+        h1 {
+            padding-top: 0.5em;
+        }
+
         /* ========== 基本スタイル (ライトモード) ========== */
         :root {
             --card-bg-color: #ffffff;
@@ -89,9 +94,7 @@ def inject_custom_css():
         }
 
         /* ========== 共通スタイル ========== */
-        .block-container {
-            padding: 1rem 1rem 3rem 1rem !important;
-        }
+        .block-container { padding: 1rem 1rem 3rem 1rem !important; }
         .card {
             background-color: var(--card-bg-color);
             border: 1px solid var(--card-border-color);
@@ -124,6 +127,17 @@ def inject_custom_css():
             color: var(--text-color-secondary);
         }
         .finding-details strong { color: var(--text-color-primary); }
+
+        /* ========== ★★★ 修正点: ダークモードの文字を見やすくする ★★★ ========== */
+        body[data-theme="dark"] .finding-location,
+        body[data-theme="dark"] .observation-box,
+        body[data-theme="dark"] .finding-details strong {
+            color: #f9fafb; /* 白に近い色 */
+        }
+        body[data-theme="dark"] .finding-details p {
+            color: #d1d5db; /* 明るいグレー */
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -215,8 +229,6 @@ def display_report(report_payload, files_dict):
     for i, item in enumerate(report_data):
         with st.container(border=True):
             if files_dict and item.get('file_name') in files_dict:
-                # ★★★★★ 修正点 ★★★★★
-                # use_column_width を use_container_width に変更
                 st.image(files_dict[item['file_name']], caption=f"{i + 1}. {item['file_name']}", use_container_width=True)
             
             findings = item.get("findings", [])
@@ -254,17 +266,15 @@ def main():
     if not model:
         st.stop()
 
-    # レポートが既にあれば表示
     if 'report_payload' in st.session_state:
         display_report(st.session_state.report_payload, st.session_state.files_dict)
         if st.button("✨ 新しいレポートを作成する"):
-            # セッションをクリアして最初から
             for key in list(st.session_state.keys()):
-                del st.session_state[key]
+                if key != 'password_correct': # パスワード認証情報は残す
+                    del st.session_state[key]
             st.rerun()
         return
 
-    # レポートがなければ作成フォームを表示
     st.header("レポート作成")
     with st.form("report_form"):
         report_title = st.text_input("物件名・案件名", "（例）〇〇ビル 301号室 原状回復工事")
