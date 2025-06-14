@@ -177,7 +177,9 @@ def create_report_prompt(filenames):
 def generate_ai_report(model, file_batch, prompt):
     """画像とプロンプトをAIに送り、レポートを生成"""
     image_parts = [Part.from_data(f.getvalue(), mime_type=f.type) for f in file_batch]
-    response = model.generate_content([prompt] + image_parts, request_options={"timeout": 120})
+    # ★★★★★ 修正点 ★★★★★
+    # 互換性のない request_options を削除
+    response = model.generate_content([prompt] + image_parts)
     return response.text
 
 def parse_json_response(text):
@@ -279,7 +281,6 @@ def main():
             st.warning("写真をアップロードしてください。")
             return
 
-        # ★★★ ここからが分析処理の本体 ★★★
         with st.spinner("AIによる分析を開始しました。写真の枚数に応じて数分かかることがあります..."):
             try:
                 final_report_data = []
@@ -288,8 +289,11 @@ def main():
                 
                 for i in range(0, len(uploaded_files), BATCH_SIZE):
                     current_batch_num = (i // BATCH_SIZE) + 1
+                    # 進捗バーのテキストを更新
                     progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
-                    progress_bar.progress((i + 1) / len(uploaded_files), text=progress_text)
+                    # 進捗バーのパーセンテージを更新
+                    progress_percentage = (i / len(uploaded_files))
+                    progress_bar.progress(progress_percentage, text=progress_text)
                     
                     file_batch = uploaded_files[i:i + BATCH_SIZE]
                     filenames = [f.name for f in file_batch]
@@ -302,7 +306,8 @@ def main():
                     else:
                         raise Exception("AIからの応答の解析に失敗しました。")
                 
-                # 全ての処理が成功した場合、結果をセッションに保存
+                progress_bar.progress(1.0, text="分析完了！")
+                
                 st.session_state.files_dict = {f.name: f for f in uploaded_files}
                 st.session_state.report_payload = {
                     "title": report_title,
@@ -310,16 +315,14 @@ def main():
                     "report_data": final_report_data
                 }
                 st.success("分析が完了しました！")
-                time.sleep(1) # 完了メッセージをユーザーに見せるための短い待機
+                time.sleep(1)
 
             except Exception as e:
                 st.error(f"分析処理中にエラーが発生しました: {str(e)}")
-                # エラーが発生した場合、中途半端なレポートが残らないようにする
                 if 'report_payload' in st.session_state:
                     del st.session_state['report_payload']
-                return # エラーメッセージを表示して処理を停止
+                return
 
-        # 処理が正常に完了したら、ページを再読み込みしてレポート表示に切り替える
         st.rerun()
 
 if __name__ == "__main__":
