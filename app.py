@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 # Streamlitのページ設定
 st.set_page_config(
     page_title="現場分析レポート - Professional Edition",
-    page_icon="🏗️",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
     menu_items={
@@ -167,7 +167,7 @@ class AuthenticationManager:
         try:
             PASSWORD = st.secrets["PASSWORD"]
         except KeyError:
-            st.error("⚠️ パスワードが設定されていません。")
+            st.error("パスワードが設定されていません。")
             st.info("""
                 **設定方法:**
                 1. `.streamlit/secrets.toml`ファイルを作成
@@ -201,7 +201,7 @@ class AuthenticationManager:
         # 認証状態のチェック
         if "password_correct" not in st.session_state:
             # 初回アクセス時
-            st.markdown("### 🔐 ログイン")
+            st.markdown("### ログイン")
             st.text_input(
                 "パスワードを入力してください",
                 type="password",
@@ -213,7 +213,7 @@ class AuthenticationManager:
             
         elif not st.session_state["password_correct"]:
             # パスワードが間違っている場合
-            st.markdown("### 🔐 ログイン")
+            st.markdown("### ログイン")
             st.text_input(
                 "パスワードを入力してください",
                 type="password",
@@ -225,9 +225,9 @@ class AuthenticationManager:
             # エラーメッセージの表示
             remaining_attempts = AppConfig.MAX_LOGIN_ATTEMPTS - st.session_state.login_attempts
             if remaining_attempts > 0:
-                st.error(f"❌ パスワードが間違っています。（残り{remaining_attempts}回）")
+                st.error(f"パスワードが間違っています。（残り{remaining_attempts}回）")
             else:
-                st.error("❌ ログイン試行回数の上限に達しました。")
+                st.error("ログイン試行回数の上限に達しました。")
             return False
         
         return True
@@ -627,15 +627,6 @@ class StyleManager:
                 padding: 1.5rem;
                 margin-bottom: 3rem;
                 position: relative;
-                padding-left: 3.5rem;
-            }
-            
-            .print-guidance::before {
-                content: '📄';
-                position: absolute;
-                left: 1.5rem;
-                top: 1.5rem;
-                font-size: 1.5rem;
             }
             
             .print-guidance strong {
@@ -864,16 +855,6 @@ class StyleManager:
                 color: #14532d;
                 font-size: 0.875rem;
                 border-left: 4px solid var(--success-color);
-                position: relative;
-                padding-left: 3rem;
-            }
-            
-            .observation-box::before {
-                content: '✓';
-                position: absolute;
-                left: 1rem;
-                font-size: 1.25rem;
-                color: var(--success-color);
             }
             
             .no-finding-box {
@@ -906,15 +887,6 @@ class StyleManager:
                 margin-bottom: 1rem;
                 border: 1px solid var(--border-color);
                 position: relative;
-            }
-            
-            .edit-container::before {
-                content: '✏️';
-                position: absolute;
-                top: 1rem;
-                right: 1rem;
-                font-size: 1.25rem;
-                opacity: 0.5;
             }
             
             /* セクションヘッダー */
@@ -1208,7 +1180,7 @@ class StyleManager:
                     e.preventDefault();
                     
                     // カスタムダイアログを表示
-                    const message = `📄 PDFとして保存する手順:\\n\\n` +
+                    const message = `PDFとして保存する手順:\\n\\n` +
                         `1. 画面右上の「⋮」メニューをクリック\\n` +
                         `2. 「Print」を選択\\n` +
                         `3. 送信先で「PDFに保存」を選択\\n` +
@@ -1248,7 +1220,7 @@ class StyleManager:
                     submitButton.addEventListener('click', () => {
                         setTimeout(() => {
                             submitButton.disabled = true;
-                            submitButton.textContent = '⏳ 処理中...';
+                            submitButton.textContent = '処理中...';
                         }, 100);
                     });
                 }
@@ -1277,9 +1249,9 @@ class GCPManager:
             GenerativeModel: 初期化されたモデル、失敗時はNone
         """
         try:
-            # secrets.tomlからGCP認証情報を取得
+            # 認証情報の解析
             if "gcp" not in st.secrets:
-                st.error("⚠️ GCP認証情報が設定されていません。")
+                st.error("GCP認証情報が設定されていません。")
                 st.info("""
                     **設定方法:**
                     1. `.streamlit/secrets.toml`ファイルに以下を追加:
@@ -1321,12 +1293,12 @@ class GCPManager:
             return model
             
         except json.JSONDecodeError as e:
-            st.error("❌ GCP認証情報のJSON形式が正しくありません。")
+            st.error("GCP認証情報のJSON形式が正しくありません。")
             logger.error(f"JSON decode error: {str(e)}")
             return None
             
         except Exception as e:
-            st.error(f"❌ GCP認証の初期化に失敗しました: {str(e)}")
+            st.error(f"GCP認証の初期化に失敗しました: {str(e)}")
             logger.error(f"GCP initialization error: {str(e)}\n{traceback.format_exc()}")
             return None
 
@@ -1530,7 +1502,7 @@ class AIProcessor:
             logger.debug(f"Failed to parse text: {text[:500]}...")  # デバッグ用
             
             # エラー詳細を表示
-            st.error("❌ AI応答をJSON形式として解析できませんでした")
+            st.error("AI応答をJSON形式として解析できませんでした")
             with st.expander("エラー詳細を表示"):
                 st.code(text, language="text")
                 st.error(f"JSONエラー: {str(e)}")
@@ -1657,7 +1629,7 @@ class ImageProcessor:
             
         except Exception as e:
             logger.error(f"Image optimization error: {str(e)}")
-            st.warning(f"⚠️ 画像の最適化中にエラーが発生しました: {str(e)}")
+            st.warning(f"画像の最適化中にエラーが発生しました: {str(e)}")
             
             # フォールバック: 元の画像をそのままBase64エンコード
             try:
@@ -1768,7 +1740,7 @@ class ReportRenderer:
             content_html += f'<div class="observation-box">{observation}</div>'
         else:
             # 指摘事項なしの場合
-            content_html += '<div class="no-finding-box">✓ 修繕必要箇所なし</div>'
+            content_html += '<div class="no-finding-box">修繕必要箇所なし</div>'
         
         # 全体のHTML
         return f'''
@@ -1927,7 +1899,7 @@ class ReportRenderer:
         """
         # 編集モードバナー
         st.markdown(
-            '<div class="edit-mode-banner">📝 編集モード - 変更後は「編集を保存」をクリックしてください</div>',
+            '<div class="edit-mode-banner">編集モード - 変更後は「編集を保存」をクリックしてください</div>',
             unsafe_allow_html=True
         )
         
@@ -2071,7 +2043,7 @@ class ReportRenderer:
                                 
                                 # 削除ボタン
                                 if st.button(
-                                    "🗑️ この指摘事項を削除",
+                                    "この指摘事項を削除",
                                     key=f"delete_{i}_{j}",
                                     type="secondary"
                                 ):
@@ -2084,7 +2056,7 @@ class ReportRenderer:
                         
                         # 新規指摘事項追加ボタン
                         if st.button(
-                            "➕ 指摘事項を追加",
+                            "指摘事項を追加",
                             key=f"add_finding_{i}",
                             use_container_width=True
                         ):
@@ -2109,7 +2081,7 @@ class ReportRenderer:
                         
                         # 指摘事項に変更ボタン
                         if st.button(
-                            "🔄 指摘事項に変更",
+                            "指摘事項に変更",
                             key=f"convert_{i}",
                             use_container_width=True
                         ):
@@ -2124,12 +2096,12 @@ class ReportRenderer:
                             st.rerun()
                     else:
                         # 修繕必要箇所なし
-                        st.info("✓ 修繕必要箇所なし")
+                        st.info("修繕必要箇所なし")
                         
                         col_btn1, col_btn2 = st.columns(2)
                         with col_btn1:
                             if st.button(
-                                "➕ 指摘事項を追加",
+                                "指摘事項を追加",
                                 key=f"add_new_finding_{i}",
                                 use_container_width=True
                             ):
@@ -2146,7 +2118,7 @@ class ReportRenderer:
                         
                         with col_btn2:
                             if st.button(
-                                "📝 所見を追加",
+                                "所見を追加",
                                 key=f"add_new_observation_{i}",
                                 use_container_width=True
                             ):
@@ -2179,14 +2151,14 @@ def main():
     # Vertex AIモデルの初期化
     model = GCPManager.initialize_vertexai()
     if not model:
-        st.error("❌ AIモデルの初期化に失敗しました。設定を確認してください。")
+        st.error("AIモデルの初期化に失敗しました。設定を確認してください。")
         return
     
     # ============================================================
     # 状態1: レポートが生成済みの場合
     # ============================================================
     if st.session_state.report_payload is not None:
-        st.success("✅ レポートの作成が完了しました")
+        st.success("レポートの作成が完了しました")
         
         # アクションボタン
         col1, col2, col3 = st.columns([1, 1, 1])
@@ -2194,7 +2166,7 @@ def main():
         with col1:
             if st.session_state.edit_mode:
                 if st.button(
-                    "💾 編集を保存",
+                    "編集を保存",
                     key="save_edit",
                     use_container_width=True,
                     type="primary"
@@ -2205,12 +2177,12 @@ def main():
                     )
                     st.session_state.edit_mode = False
                     st.session_state.edited_report = None
-                    st.success("✅ 編集内容を保存しました")
+                    st.success("編集内容を保存しました")
                     time.sleep(1)
                     st.rerun()
             else:
                 if st.button(
-                    "✏️ レポートを編集",
+                    "レポートを編集",
                     key="start_edit",
                     use_container_width=True
                 ):
@@ -2221,7 +2193,7 @@ def main():
         with col2:
             if st.session_state.edit_mode:
                 if st.button(
-                    "❌ 編集をキャンセル",
+                    "編集をキャンセル",
                     key="cancel_edit",
                     use_container_width=True,
                     type="secondary"
@@ -2238,7 +2210,7 @@ def main():
                     indent=2
                 )
                 st.download_button(
-                    label="📥 JSONダウンロード",
+                    label="JSONダウンロード",
                     data=report_json,
                     file_name=f"report_{date.today().strftime('%Y%m%d')}.json",
                     mime="application/json",
@@ -2247,7 +2219,7 @@ def main():
         
         with col3:
             if st.button(
-                "🆕 新しいレポートを作成",
+                "新しいレポートを作成",
                 key="new_from_result",
                 use_container_width=True,
                 type="secondary"
@@ -2262,7 +2234,7 @@ def main():
         if not st.session_state.edit_mode:
             st.markdown("""
                 <div class="print-guidance">
-                    <strong>📄 PDFとして保存する方法</strong>
+                    <strong>PDFとして保存する方法</strong>
                     <ol>
                         <li>画面右上の「⋮」（3点メニュー）をクリック</li>
                         <li>「Print」を選択</li>
@@ -2304,13 +2276,13 @@ def main():
     """, unsafe_allow_html=True)
     
     # 使い方の説明
-    with st.expander("📖 使い方ガイド", expanded=False):
+    with st.expander("使い方ガイド", expanded=False):
         st.markdown("""
             ### このシステムでできること
-            - 🏗️ 現場写真から修繕箇所を自動検出
-            - 📊 緊急度別の分析レポート作成
-            - ✏️ レポートの編集・カスタマイズ
-            - 📄 PDF形式での出力
+            - 現場写真から修繕箇所を自動検出
+            - 緊急度別の分析レポート作成
+            - レポートの編集・カスタマイズ
+            - PDF形式での出力
             
             ### 使用手順
             1. **物件情報を入力** - 物件名と調査日を設定
@@ -2320,15 +2292,15 @@ def main():
             5. **PDFとして保存** - ブラウザの印刷機能を使用
             
             ### 推奨事項
-            - 📸 写真は明るく鮮明なものを使用
-            - 🖼️ 1枚あたり10MB以下を推奨
-            - 📱 スマートフォンで撮影した写真もOK
-            - 🔄 一度に最大50枚まで処理可能
+            - 写真は明るく鮮明なものを使用
+            - 1枚あたり10MB以下を推奨
+            - スマートフォンで撮影した写真もOK
+            - 一度に最大50枚まで処理可能
         """)
     
     # 処理中の場合の警告
     if st.session_state.processing:
-        st.warning("⏳ 現在処理中です。しばらくお待ちください...")
+        st.warning("現在処理中です。しばらくお待ちください...")
     
     # 入力フォーム
     st.markdown('<h2 class="section-header">物件情報の入力</h2>', unsafe_allow_html=True)
@@ -2376,19 +2348,19 @@ def main():
                 oversized_files.append(f"{file.name} ({file_size_mb:.1f}MB)")
         
         if oversized_files:
-            st.error(f"❌ 以下のファイルはサイズ制限（{AppConfig.MAX_FILE_SIZE_MB}MB）を超えています:")
+            st.error(f"以下のファイルはサイズ制限（{AppConfig.MAX_FILE_SIZE_MB}MB）を超えています:")
             for file in oversized_files:
                 st.write(f"  • {file}")
         else:
             col1, col2 = st.columns(2)
             with col1:
-                st.success(f"✅ {len(uploaded_files)}枚の写真がアップロードされました")
+                st.success(f"{len(uploaded_files)}枚の写真がアップロードされました")
             with col2:
                 st.info(f"合計サイズ: {total_size:.1f}MB")
             
             # プレビュー表示（最初の3枚）
             if len(uploaded_files) > 0:
-                with st.expander("📸 アップロード画像のプレビュー", expanded=False):
+                with st.expander("アップロード画像のプレビュー", expanded=False):
                     preview_cols = st.columns(min(3, len(uploaded_files)))
                     for i, (col, file) in enumerate(zip(preview_cols, uploaded_files[:3])):
                         with col:
@@ -2448,7 +2420,7 @@ def main():
             total_batches = math.ceil(len(uploaded_files) / AppConfig.BATCH_SIZE)
             
             # プログレスバーの初期化
-            progress_bar = st.progress(0, text="🔄 分析の準備をしています...")
+            progress_bar = st.progress(0, text="分析の準備をしています...")
             status_container = st.container()
             
             final_report_data = []
@@ -2461,7 +2433,7 @@ def main():
                     
                     # プログレス更新
                     progress = batch_idx / len(uploaded_files)
-                    progress_text = f"📸 写真を分析中... (バッチ {current_batch_num}/{total_batches})"
+                    progress_text = f"写真を分析中... (バッチ {current_batch_num}/{total_batches})"
                     progress_bar.progress(progress, text=progress_text)
                     
                     # バッチの準備
@@ -2470,7 +2442,7 @@ def main():
                     
                     # ステータス表示
                     with status_container:
-                        st.info(f"🔍 分析中: {', '.join(filenames[:3])}{'...' if len(filenames) > 3 else ''}")
+                        st.info(f"分析中: {', '.join(filenames[:3])}{'...' if len(filenames) > 3 else ''}")
                     
                     # プロンプト生成
                     prompt = AIProcessor.create_report_prompt(filenames)
@@ -2487,18 +2459,18 @@ def main():
                             logger.info(f"Successfully processed batch {current_batch_num}")
                         else:
                             error_count += 1
-                            st.error(f"❌ バッチ {current_batch_num} の解析でエラーが発生しました")
+                            st.error(f"バッチ {current_batch_num} の解析でエラーが発生しました")
                     else:
                         error_count += 1
                         logger.error(f"Failed to get AI response for batch {current_batch_num}")
                 
                 # 処理完了
-                progress_bar.progress(1.0, text="✅ 分析完了！")
+                progress_bar.progress(1.0, text="分析完了！")
                 time.sleep(1)
                 
                 # エラーチェック
                 if error_count > 0:
-                    st.warning(f"⚠️ {error_count}個のバッチで処理エラーが発生しました")
+                    st.warning(f"{error_count}個のバッチで処理エラーが発生しました")
                 
                 if final_report_data:
                     # レポートデータの保存
@@ -2518,21 +2490,21 @@ def main():
                     logger.info(f"Report created successfully: {len(final_report_data)} images processed")
                     
                     # 成功メッセージ
-                    st.success(f"✅ レポートの作成が完了しました！（{len(final_report_data)}枚を分析）")
+                    st.success(f"レポートの作成が完了しました！（{len(final_report_data)}枚を分析）")
                     time.sleep(1.5)
                 else:
-                    st.error("❌ レポートの作成に失敗しました。もう一度お試しください。")
+                    st.error("レポートの作成に失敗しました。もう一度お試しください。")
                     st.session_state.report_payload = None
                 
             except Exception as e:
                 # エラーハンドリング
                 logger.error(f"Critical error during processing: {str(e)}\n{traceback.format_exc()}")
-                st.error(f"❌ 処理中に予期しないエラーが発生しました: {str(e)}")
+                st.error(f"処理中に予期しないエラーが発生しました: {str(e)}")
                 st.session_state.report_payload = None
                 
                 # デバッグ情報（開発モード時のみ）
                 if st.secrets.get("debug_mode", False):
-                    with st.expander("🐛 デバッグ情報"):
+                    with st.expander("デバッグ情報"):
                         st.code(traceback.format_exc())
                 
             finally:
@@ -2562,7 +2534,7 @@ if __name__ == "__main__":
     except Exception as e:
         # 最上位のエラーハンドリング
         logger.critical(f"Application crashed: {str(e)}\n{traceback.format_exc()}")
-        st.error("😱 アプリケーションで重大なエラーが発生しました")
+        st.error("アプリケーションで重大なエラーが発生しました")
         st.error("ページを再読み込みしてください")
         
         # デバッグモードの場合は詳細を表示
